@@ -70,12 +70,18 @@ void high_isr(void) {
             // Traitement à faire ici.
             // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
 
+            while (BusyUSART());
             WriteUSART(0xFD);
+            while (BusyUSART());
             WriteUSART(len << 4 | id >> 8);
+            while (BusyUSART());
             WriteUSART(id & 0xFF);
+            while (BusyUSART());
             for(i = 1; i <= len && i <= 8; i++) {
+                while (BusyUSART());
                 WriteUSART(data[i]);
             }
+            while (BusyUSART());
             WriteUSART(0xBF);
 
         }
@@ -183,11 +189,9 @@ void main(void) {
     INTCONbits.PEIE = 1;
     INTCONbits.GIE = 1;
 
-    CANSendMessage(77, NULL, 0, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
     while (1) {
        Delay10KTCYx(5);
     
        CANSendMessage(77, NULL, 0, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
-
     }
 }
