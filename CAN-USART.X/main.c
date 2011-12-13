@@ -65,7 +65,7 @@ void high_isr(void) {
                 break;
             
             led ^= 1;
-            Delay10KTCYx(200);
+            //Delay10KTCYx(200);
 
             // Traitement à faire ici.
             // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
@@ -80,7 +80,7 @@ void high_isr(void) {
 
         }
 
-        // TODO PIR3bits.ERRIF = 0;
+       PIR3bits.ERRIF = 0;
         if (PIE3bits.RXB0IE)
             PIR3bits.RXB0IF = 0;
         if (PIE3bits.RXB1IE)
@@ -185,8 +185,9 @@ void main(void) {
 
     CANSendMessage(77, NULL, 0, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
     while (1) {
-        Delay10TCYx(100);
-        //printf("Hello world");
-        //CANSendMessage(77, NULL, 0, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+       Delay10KTCYx(5);
+    
+       CANSendMessage(77, NULL, 0, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+
     }
 }
