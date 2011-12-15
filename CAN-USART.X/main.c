@@ -29,6 +29,10 @@
 
 /////VARIABLES GLOBALES ////
 
+int packetPos = 0;
+int packetSize;
+unsigned long packetId;
+unsigned char packetData[8];
 
 /////VARIABLES GLOBALES ////
 void high_isr(void);
@@ -52,7 +56,7 @@ void low_interrupt(void) {
 #pragma interrupt high_isr
 
 void high_isr(void) {
-    if (PIE3bits.RXB0IE && PIR3bits.RXB0IF || PIE3bits.RXB1IE && PIR3bits.RXB1IF) {
+    if (PIE3bits.RXB0IE && PIR3bits.RXB0IF || PIE3bits.RXB1IE && PIR3bits.RXB1IF) { // CAN reception
 
         char data[8];
         unsigned long id;
@@ -65,11 +69,8 @@ void high_isr(void) {
                 break;
             
             led ^= 1;
-            //Delay10KTCYx(200);
 
-            // Traitement à faire ici.
             // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
-
             while (BusyUSART());
             WriteUSART(0xFD);
             while (BusyUSART());
@@ -86,40 +87,50 @@ void high_isr(void) {
 
         }
 
-       PIR3bits.ERRIF = 0;
+       PIR3bits.ERRIF = 0; // TODO
         if (PIE3bits.RXB0IE)
             PIR3bits.RXB0IF = 0;
         if (PIE3bits.RXB1IE)
             PIR3bits.RXB1IF = 0;
     }
-/*
-    if (PIE1bits.RXIE && PIR1bits.RCIF) {
+
+    if (PIE1bits.RCIE && PIR1bits.RCIF) { // UART reception
         unsigned char c = ReadUSART();
-        
-        
-        if(bufferPos == -1 && c == 0xFD) { // (si c'est pas 0xFD on ignore)
-            bufferPos = 0;
-        }
-        else if(bufferPos == 0) // [ size | 0 | id10..8 ]
-        {
-        }
-        else if(bufferPos == 8) // 
-        {
-            unsigned long id = (buffer[0] & ) << ;
-            CANSendMessage(id, data, buffer[0] >> , CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
-        }
-        else // paquet malformé, on ignore
-            bufferPos--;
-
-
-        buffer[bufferPos] = c;
-
         PIR1bits.RCIF = 0;
+        
+        if(packetPos == 0 && c == 0xFD) { // (si c'est pas 0xFD on ignore)
+            // [ 0xFD ] Packet initialization.
+            packetPos = 1;
+        }
+        else if(packetPos == 1 && (c & 0b00001000) == 0) { // Le cinquième bit est à 0.
+            // [ size3..0 | 0 | id10..8 ]
+            packetSize = c >> 4;
+            packetId = (c & 0b00000111) << 8;
+            
+            if(packetSize <= 8)
+                packetPos = 2;
+            else
+                packetPos = 0; // Discard packet.
+        }
+        else if(packetPos == 2) {
+            // [ id7..0 ]
+            packetId |= c;
+            packetPos = 3;
+        }
+        else if(3 <= packetPos && packetPos < 3 + packetSize) {
+            // Message byte (from 0 to 8).
+            packetData[packetPos - 3] = c;
+            packetPos++;
+        }
+        else if(packetPos == 3 + packetSize && c == 0xBF) {
+            // [ 0xBF ] Packet end.
+            CANSendMessage(packetId, packetData, packetSize, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            packetPos = 0;
+        }
+        else // Malformed packet, ignored.
+            packetPos = 0;
     }
-*/
 }
-unsigned char buffer[10]; // Does not contain 0xFD and 0xFB.
-int bufferPos = -1;
 
 #pragma interrupt low_isr
 
