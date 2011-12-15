@@ -1,7 +1,7 @@
 /*
 * Template PIC18F
 * Compiler : Microchip C18
-* µC : 18f2680
+* µC : 18f2550
 * Nov.10 2011
 *    ____________      _           _
 *   |___  /| ___ \    | |         | |
