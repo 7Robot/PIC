@@ -1,30 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configurationDescriptor version="62">
   <logicalFolder name="root" displayName="root" projectFiles="true">
-    <logicalFolder name="HeaderFiles"
-                   displayName="Header Files"
-                   projectFiles="true">
-      <itemPath>can18xx8.h</itemPath>
-    </logicalFolder>
-    <logicalFolder name="LibraryFiles"
-                   displayName="Library Files"
-                   projectFiles="true">
-    </logicalFolder>
-    <logicalFolder name="SourceFiles"
-                   displayName="Source Files"
-                   projectFiles="true">
-      <itemPath>can18xx8.c</itemPath>
-      <itemPath>main.c</itemPath>
-    </logicalFolder>
-    <logicalFolder name="ExternalFiles"
-                   displayName="Important Files"
-                   projectFiles="false">
-      <itemPath>Makefile</itemPath>
-    </logicalFolder>
   </logicalFolder>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
-    <conf name="default" type="2">
+    <conf name="default" type="5">
       <toolsSet>
         <developmentServer>localhost</developmentServer>
         <targetDevice>PIC18F2680</targetDevice>
@@ -35,10 +15,6 @@
         <platform>2</platform>
       </toolsSet>
       <compileType>
-        <linkerTool>
-          <linkerLibItems>
-          </linkerLibItems>
-        </linkerTool>
       </compileType>
       <C18>
       </C18>

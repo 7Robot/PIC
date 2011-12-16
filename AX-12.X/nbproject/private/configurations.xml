@@ -3,7 +3,7 @@
   <projectmakefile>Makefile</projectmakefile>
   <defaultConf>0</defaultConf>
   <confs>
-    <conf name="default" type="2">
+    <conf name="default" type="3">
       <platformToolSN></platformToolSN>
       <languageToolchainDir>/opt/microchip/mplabc18/v3.36/bin</languageToolchainDir>
       <mdbdebugger version="1">

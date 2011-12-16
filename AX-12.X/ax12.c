@@ -31,8 +31,10 @@ byte presentPSL (int* PSL);
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdio.h>
+#include <p18f2680.h>
+#include <usart.h>
 #include "ax12.h"
-
 
 
 /******************************************************************************

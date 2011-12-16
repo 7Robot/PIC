@@ -33,11 +33,6 @@
     <conf name="default" type="2">
       <toolsSet>
         <developmentServer>localhost</developmentServer>
-        <targetDevice>PIC18F2550</targetDevice>
-        <targetHeader></targetHeader>
-        <platformTool>PICkit3PlatformTool</platformTool>
-        <languageToolchain>C18</languageToolchain>
-        <compilerSet>C18</compilerSet>
         <platform>2</platform>
       </toolsSet>
       <compileType>
@@ -52,6 +47,8 @@
       </C18-AS>
       <C18-LD>
       </C18-LD>
+      <C18LanguageToolchain>
+      </C18LanguageToolchain>
       <PICkit3PlatformTool>
         <property key="memories.eeprom" value="false"/>
         <property key="voltagevalue" value="5.0"/>
@@ -62,8 +59,8 @@
         <property key="memories.programmemory.end" value="0x7fff"/>
         <property key="Freeze Peripherals" value="true"/>
         <property key="memories.programmemory" value="true"/>
-        <property key="poweroptions.powerenable" value="true"/>
         <property key="programoptions.eraseb4program" value="true"/>
+        <property key="poweroptions.powerenable" value="true"/>
       </PICkit3PlatformTool>
     </conf>
   </confs>

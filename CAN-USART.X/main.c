@@ -94,7 +94,7 @@ void high_isr(void) {
             PIR3bits.RXB1IF = 0;
     }
 
-    if (PIE1bits.RCIE && PIR1bits.RCIF) { // UART reception
+    if (PIE1bits.RCIE && PIR1bits.RCIF) { // UART reception.
         unsigned char c = ReadUSART();
         PIR1bits.RCIF = 0;
         

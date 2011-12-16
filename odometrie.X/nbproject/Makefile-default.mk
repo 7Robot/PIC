@@ -67,9 +67,9 @@ MP_CPP=/opt/microchip/mplabx/mplab_ide/mplab_ide/modules/../../bin/mplab-cpp
 .build-conf: ${BUILD_SUBPROJECTS}
 	${MAKE}  -f nbproject/Makefile-default.mk dist/${CND_CONF}/${IMAGE_TYPE}/odometrie.X.${IMAGE_TYPE}.cof
 
-MP_PROCESSOR_OPTION=18F2550
-MP_PROCESSOR_OPTION_LD=18f2550
-MP_LINKER_DEBUG_OPTION= -u_DEBUGCODESTART=0x7dc0 -u_DEBUGCODELEN=0x240 -u_DEBUGDATASTART=0x3f4 -u_DEBUGDATALEN=0xb
+MP_PROCESSOR_OPTION=18F2680
+MP_PROCESSOR_OPTION_LD=18f2680
+MP_LINKER_DEBUG_OPTION= -u_DEBUGCODESTART=0xfd80 -u_DEBUGCODELEN=0x280 -u_DEBUGDATASTART=0xcf4 -u_DEBUGDATALEN=0xb
 # ------------------------------------------------------------------------------------
 # Rules for buildStep: createRevGrep
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
@@ -105,7 +105,7 @@ ${OBJECTDIR}/main.o: main.c  nbproject/Makefile-${CND_CONF}.mk
 	${RM} ${OBJECTDIR}/main.o.d 
 	${MKDIR} ${OBJECTDIR} 
 	${MP_CC} $(MP_EXTRA_CC_PRE) -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1 -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/main.o   main.c  > ${OBJECTDIR}/main.err 2>&1 ; if [ $$? -eq 0 ] ; then cat ${OBJECTDIR}/main.err | sed 's/\(^.*:.*:\)\(Warning\)\(.*$$\)/\1 \2:\3/g' ; else cat ${OBJECTDIR}/main.err | sed 's/\(^.*:.*:\)\(Error\)\(.*$$\)/\1 \2:\3/g' ; exit 1 ; fi
-	${MP_CPP}  -MMD ${OBJECTDIR}/main.o.temp main.c __temp_cpp_output__ -D __18F2550 -D __18CXX -I /opt/microchip/mplabc18/v3.36/bin/../h  -D__18F2550
+	${MP_CPP}  -MMD ${OBJECTDIR}/main.o.temp main.c __temp_cpp_output__ -D __18F2680 -D __18CXX -I /opt/microchip/mplabc18/v3.36/bin/../h  -D__18F2680
 	printf "%s/" ${OBJECTDIR} > ${OBJECTDIR}/main.o.d
 ifneq (,$(findstring MINGW32,$(OS_CURRENT)))
 	cat ${OBJECTDIR}/main.o.temp | sed -e 's/\\\ /__SPACES__/g' -e's/\\$$/__EOL__/g' -e 's/\\/\//g' -e 's/__SPACES__/\\\ /g' -e 's/__EOL__/\\/g' >> ${OBJECTDIR}/main.o.d
@@ -118,7 +118,7 @@ ${OBJECTDIR}/main.o: main.c  nbproject/Makefile-${CND_CONF}.mk
 	${RM} ${OBJECTDIR}/main.o.d 
 	${MKDIR} ${OBJECTDIR} 
 	${MP_CC} $(MP_EXTRA_CC_PRE) -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/main.o   main.c  > ${OBJECTDIR}/main.err 2>&1 ; if [ $$? -eq 0 ] ; then cat ${OBJECTDIR}/main.err | sed 's/\(^.*:.*:\)\(Warning\)\(.*$$\)/\1 \2:\3/g' ; else cat ${OBJECTDIR}/main.err | sed 's/\(^.*:.*:\)\(Error\)\(.*$$\)/\1 \2:\3/g' ; exit 1 ; fi
-	${MP_CPP}  -MMD ${OBJECTDIR}/main.o.temp main.c __temp_cpp_output__ -D __18F2550 -D __18CXX -I /opt/microchip/mplabc18/v3.36/bin/../h  -D__18F2550
+	${MP_CPP}  -MMD ${OBJECTDIR}/main.o.temp main.c __temp_cpp_output__ -D __18F2680 -D __18CXX -I /opt/microchip/mplabc18/v3.36/bin/../h  -D__18F2680
 	printf "%s/" ${OBJECTDIR} > ${OBJECTDIR}/main.o.d
 ifneq (,$(findstring MINGW32,$(OS_CURRENT)))
 	cat ${OBJECTDIR}/main.o.temp | sed -e 's/\\\ /__SPACES__/g' -e's/\\$$/__EOL__/g' -e 's/\\/\//g' -e 's/__SPACES__/\\\ /g' -e 's/__EOL__/\\/g' >> ${OBJECTDIR}/main.o.d

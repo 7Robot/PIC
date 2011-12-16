@@ -10,14 +10,6 @@
                    displayName="Library Files"
                    projectFiles="true">
     </logicalFolder>
-    <logicalFolder name="LinkerScript"
-                   displayName="Linker Files"
-                   projectFiles="true">
-    </logicalFolder>
-    <logicalFolder name="ObjectFiles"
-                   displayName="Object Files"
-                   projectFiles="true">
-    </logicalFolder>
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
@@ -35,11 +27,6 @@
     <conf name="default" type="2">
       <toolsSet>
         <developmentServer>localhost</developmentServer>
-        <targetDevice>PIC18F2680</targetDevice>
-        <targetHeader></targetHeader>
-        <platformTool>PICkit3PlatformTool</platformTool>
-        <languageToolchain>C18</languageToolchain>
-        <languageToolchainVersion>3.36</languageToolchainVersion>
         <platform>2</platform>
       </toolsSet>
       <compileType>

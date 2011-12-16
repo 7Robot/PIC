@@ -10,9 +10,9 @@ CND_CONF=default
 CND_DISTDIR=dist
 TMPDIR=build/${CND_CONF}/${IMAGE_TYPE}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/AX-12.X.${IMAGE_TYPE}.cof
-OUTPUT_BASENAME=AX-12.X.${IMAGE_TYPE}.cof
-PACKAGE_TOP_DIR=ax-12.x/
+OUTPUT_PATH=dist/${CND_CONF}/ax-12.x.lib
+OUTPUT_BASENAME=ax-12.x.lib
+PACKAGE_TOP_DIR=AX-12.X/
 
 # Functions
 function checkReturnCode
@@ -57,15 +57,15 @@ mkdir -p ${TMPDIR}
 
 # Copy files and create directories and links
 cd "${TOP}"
-makeDirectory ${TMPDIR}/ax-12.x/bin
-copyFileToTmpDir "${OUTPUT_PATH}" "${TMPDIR}/${PACKAGE_TOP_DIR}bin/${OUTPUT_BASENAME}" 0755
+makeDirectory ${TMPDIR}/AX-12.X/lib
+copyFileToTmpDir "${OUTPUT_PATH}" "${TMPDIR}/${PACKAGE_TOP_DIR}lib/${OUTPUT_BASENAME}" 0644
 
 
 # Generate tar file
 cd "${TOP}"
-rm -f ${CND_DISTDIR}/${CND_CONF}/package/ax-12.x.tar
+rm -f ${CND_DISTDIR}/${CND_CONF}/package/AX-12.X.tar
 cd ${TMPDIR}
-tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/ax-12.x.tar *
+tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/AX-12.X.tar *
 checkReturnCode
 
 # Cleanup

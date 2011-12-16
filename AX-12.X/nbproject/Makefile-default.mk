@@ -19,10 +19,10 @@ CP=cp
 CND_CONF=default
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
 IMAGE_TYPE=debug
-FINAL_IMAGE=dist/${CND_CONF}/${IMAGE_TYPE}/PID.X.${IMAGE_TYPE}.cof
+FINAL_IMAGE=dist/${CND_CONF}/ax-12.x.lib
 else
 IMAGE_TYPE=production
-FINAL_IMAGE=dist/${CND_CONF}/${IMAGE_TYPE}/PID.X.${IMAGE_TYPE}.cof
+FINAL_IMAGE=dist/${CND_CONF}/ax-12.x.lib
 endif
 
 # Object Directory
@@ -32,7 +32,7 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/main.o
+OBJECTFILES=${OBJECTDIR}/ax12.o
 
 
 CFLAGS=
@@ -65,7 +65,7 @@ MP_AR_DIR=/opt/microchip/mplabc18/v3.36/bin
 MP_CPP=/opt/microchip/mplabx/mplab_ide/mplab_ide/modules/../../bin/mplab-cpp
 
 .build-conf: ${BUILD_SUBPROJECTS}
-	${MAKE}  -f nbproject/Makefile-default.mk dist/${CND_CONF}/${IMAGE_TYPE}/PID.X.${IMAGE_TYPE}.cof
+	${MAKE}  -f nbproject/Makefile-default.mk dist/${CND_CONF}/ax-12.x.lib
 
 MP_PROCESSOR_OPTION=18F2680
 MP_PROCESSOR_OPTION_LD=18f2680
@@ -101,43 +101,43 @@ endif
 # ------------------------------------------------------------------------------------
 # Rules for buildStep: compile
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
-${OBJECTDIR}/main.o: main.c  nbproject/Makefile-${CND_CONF}.mk
-	${RM} ${OBJECTDIR}/main.o.d 
+${OBJECTDIR}/ax12.o: ax12.c  nbproject/Makefile-${CND_CONF}.mk
+	${RM} ${OBJECTDIR}/ax12.o.d 
 	${MKDIR} ${OBJECTDIR} 
-	${MP_CC} $(MP_EXTRA_CC_PRE) -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1 -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/main.o   main.c  > ${OBJECTDIR}/main.err 2>&1 ; if [ $$? -eq 0 ] ; then cat ${OBJECTDIR}/main.err | sed 's/\(^.*:.*:\)\(Warning\)\(.*$$\)/\1 \2:\3/g' ; else cat ${OBJECTDIR}/main.err | sed 's/\(^.*:.*:\)\(Error\)\(.*$$\)/\1 \2:\3/g' ; exit 1 ; fi
-	${MP_CPP}  -MMD ${OBJECTDIR}/main.o.temp main.c __temp_cpp_output__ -D __18F2680 -D __18CXX -I /opt/microchip/mplabc18/v3.36/bin/../h  -D__18F2680
-	printf "%s/" ${OBJECTDIR} > ${OBJECTDIR}/main.o.d
+	${MP_CC} $(MP_EXTRA_CC_PRE) -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1 -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/ax12.o   ax12.c  > ${OBJECTDIR}/ax12.err 2>&1 ; if [ $$? -eq 0 ] ; then cat ${OBJECTDIR}/ax12.err | sed 's/\(^.*:.*:\)\(Warning\)\(.*$$\)/\1 \2:\3/g' ; else cat ${OBJECTDIR}/ax12.err | sed 's/\(^.*:.*:\)\(Error\)\(.*$$\)/\1 \2:\3/g' ; exit 1 ; fi
+	${MP_CPP}  -MMD ${OBJECTDIR}/ax12.o.temp ax12.c __temp_cpp_output__ -D __18F2680 -D __18CXX -I /opt/microchip/mplabc18/v3.36/bin/../h  -D__18F2680
+	printf "%s/" ${OBJECTDIR} > ${OBJECTDIR}/ax12.o.d
 ifneq (,$(findstring MINGW32,$(OS_CURRENT)))
-	cat ${OBJECTDIR}/main.o.temp | sed -e 's/\\\ /__SPACES__/g' -e's/\\$$/__EOL__/g' -e 's/\\/\//g' -e 's/__SPACES__/\\\ /g' -e 's/__EOL__/\\/g' >> ${OBJECTDIR}/main.o.d
+	cat ${OBJECTDIR}/ax12.o.temp | sed -e 's/\\\ /__SPACES__/g' -e's/\\$$/__EOL__/g' -e 's/\\/\//g' -e 's/__SPACES__/\\\ /g' -e 's/__EOL__/\\/g' >> ${OBJECTDIR}/ax12.o.d
 else
-	cat ${OBJECTDIR}/main.o.temp >> ${OBJECTDIR}/main.o.d
+	cat ${OBJECTDIR}/ax12.o.temp >> ${OBJECTDIR}/ax12.o.d
 endif
 	${RM} __temp_cpp_output__
 else
-${OBJECTDIR}/main.o: main.c  nbproject/Makefile-${CND_CONF}.mk
-	${RM} ${OBJECTDIR}/main.o.d 
+${OBJECTDIR}/ax12.o: ax12.c  nbproject/Makefile-${CND_CONF}.mk
+	${RM} ${OBJECTDIR}/ax12.o.d 
 	${MKDIR} ${OBJECTDIR} 
-	${MP_CC} $(MP_EXTRA_CC_PRE) -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/main.o   main.c  > ${OBJECTDIR}/main.err 2>&1 ; if [ $$? -eq 0 ] ; then cat ${OBJECTDIR}/main.err | sed 's/\(^.*:.*:\)\(Warning\)\(.*$$\)/\1 \2:\3/g' ; else cat ${OBJECTDIR}/main.err | sed 's/\(^.*:.*:\)\(Error\)\(.*$$\)/\1 \2:\3/g' ; exit 1 ; fi
-	${MP_CPP}  -MMD ${OBJECTDIR}/main.o.temp main.c __temp_cpp_output__ -D __18F2680 -D __18CXX -I /opt/microchip/mplabc18/v3.36/bin/../h  -D__18F2680
-	printf "%s/" ${OBJECTDIR} > ${OBJECTDIR}/main.o.d
+	${MP_CC} $(MP_EXTRA_CC_PRE) -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/ax12.o   ax12.c  > ${OBJECTDIR}/ax12.err 2>&1 ; if [ $$? -eq 0 ] ; then cat ${OBJECTDIR}/ax12.err | sed 's/\(^.*:.*:\)\(Warning\)\(.*$$\)/\1 \2:\3/g' ; else cat ${OBJECTDIR}/ax12.err | sed 's/\(^.*:.*:\)\(Error\)\(.*$$\)/\1 \2:\3/g' ; exit 1 ; fi
+	${MP_CPP}  -MMD ${OBJECTDIR}/ax12.o.temp ax12.c __temp_cpp_output__ -D __18F2680 -D __18CXX -I /opt/microchip/mplabc18/v3.36/bin/../h  -D__18F2680
+	printf "%s/" ${OBJECTDIR} > ${OBJECTDIR}/ax12.o.d
 ifneq (,$(findstring MINGW32,$(OS_CURRENT)))
-	cat ${OBJECTDIR}/main.o.temp | sed -e 's/\\\ /__SPACES__/g' -e's/\\$$/__EOL__/g' -e 's/\\/\//g' -e 's/__SPACES__/\\\ /g' -e 's/__EOL__/\\/g' >> ${OBJECTDIR}/main.o.d
+	cat ${OBJECTDIR}/ax12.o.temp | sed -e 's/\\\ /__SPACES__/g' -e's/\\$$/__EOL__/g' -e 's/\\/\//g' -e 's/__SPACES__/\\\ /g' -e 's/__EOL__/\\/g' >> ${OBJECTDIR}/ax12.o.d
 else
-	cat ${OBJECTDIR}/main.o.temp >> ${OBJECTDIR}/main.o.d
+	cat ${OBJECTDIR}/ax12.o.temp >> ${OBJECTDIR}/ax12.o.d
 endif
 	${RM} __temp_cpp_output__
 endif
 
 # ------------------------------------------------------------------------------------
-# Rules for buildStep: link
+# Rules for buildStep: archive
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
-dist/${CND_CONF}/${IMAGE_TYPE}/PID.X.${IMAGE_TYPE}.cof: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk
-	${MKDIR} dist/${CND_CONF}/${IMAGE_TYPE} 
-	${MP_LD} $(MP_EXTRA_LD_PRE)   -p$(MP_PROCESSOR_OPTION_LD)  -w -x -u_DEBUG   -z__MPLAB_BUILD=1  -u_CRUNTIME -z__MPLAB_DEBUG=1 -z__MPLAB_DEBUGGER_PK3=1 $(MP_LINKER_DEBUG_OPTION) -l ${MP_CC_DIR}/../lib  -odist/${CND_CONF}/${IMAGE_TYPE}/PID.X.${IMAGE_TYPE}.cof ${OBJECTFILES}      
+dist/${CND_CONF}/ax-12.x.lib: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk
+	${MKDIR} dist/${CND_CONF} 
+	${MP_AR} $(MP_EXTRA_AR_PRE) -c dist/${CND_CONF}/ax-12.x.lib ${OBJECTFILES}     
 else
-dist/${CND_CONF}/${IMAGE_TYPE}/PID.X.${IMAGE_TYPE}.cof: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk
-	${MKDIR} dist/${CND_CONF}/${IMAGE_TYPE} 
-	${MP_LD} $(MP_EXTRA_LD_PRE)   -p$(MP_PROCESSOR_OPTION_LD)  -w    -z__MPLAB_BUILD=1  -u_CRUNTIME -l ${MP_CC_DIR}/../lib  -odist/${CND_CONF}/${IMAGE_TYPE}/PID.X.${IMAGE_TYPE}.cof ${OBJECTFILES}      
+dist/${CND_CONF}/ax-12.x.lib: ${OBJECTFILES}  nbproject/Makefile-${CND_CONF}.mk
+	${MKDIR} dist/${CND_CONF} 
+	${MP_AR} $(MP_EXTRA_AR_PRE) -c dist/${CND_CONF}/ax-12.x.lib ${OBJECTFILES}     
 endif
 
 
