@@ -10,9 +10,9 @@ CND_CONF=default
 CND_DISTDIR=dist
 TMPDIR=build/${CND_CONF}/${IMAGE_TYPE}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/PID.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-OUTPUT_BASENAME=PID.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-PACKAGE_TOP_DIR=pid.x/
+OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/CAN-USART.X.${IMAGE_TYPE}.cof
+OUTPUT_BASENAME=CAN-USART.X.${IMAGE_TYPE}.cof
+PACKAGE_TOP_DIR=can-usart.x/
 
 # Functions
 function checkReturnCode
@@ -57,15 +57,15 @@ mkdir -p ${TMPDIR}
 
 # Copy files and create directories and links
 cd "${TOP}"
-makeDirectory ${TMPDIR}/pid.x/bin
+makeDirectory ${TMPDIR}/can-usart.x/bin
 copyFileToTmpDir "${OUTPUT_PATH}" "${TMPDIR}/${PACKAGE_TOP_DIR}bin/${OUTPUT_BASENAME}" 0755
 
 
 # Generate tar file
 cd "${TOP}"
-rm -f ${CND_DISTDIR}/${CND_CONF}/package/pid.x.tar
+rm -f ${CND_DISTDIR}/${CND_CONF}/package/can-usart.x.tar
 cd ${TMPDIR}
-tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/pid.x.tar *
+tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/can-usart.x.tar *
 checkReturnCode
 
 # Cleanup
