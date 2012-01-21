@@ -24,7 +24,7 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 
 
 # Project Name
-PROJECTNAME=servomotor_lib.X
+PROJECTNAME=asservP.X
 
 # Active Configuration
 DEFAULTCONF=default

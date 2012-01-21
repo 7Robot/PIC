@@ -4,7 +4,6 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
-      <itemPath>../libcan/can18xxk8.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LibraryFiles"
                    displayName="Library Files"
@@ -21,8 +20,7 @@
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
-      <itemPath>main.c</itemPath>
-      <itemPath>../libcan/can18xxk8.c</itemPath>
+      <itemPath>/media/Données/Documents/7robot/PIC/asservP.X/asservP.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -39,7 +37,7 @@
         <targetHeader></targetHeader>
         <platformTool>PICkit3PlatformTool</platformTool>
         <languageToolchain>C18</languageToolchain>
-        <languageToolchainVersion>3.36</languageToolchainVersion>
+        <languageToolchainVersion>3.40</languageToolchainVersion>
         <platform>2</platform>
       </toolsSet>
       <compileType>
@@ -58,6 +56,30 @@
         <makeCustomizationPutChecksumInUserID>false</makeCustomizationPutChecksumInUserID>
       </makeCustomizationType>
       <C18>
+        <property key="storage-class" value="sca"/>
+        <property key="enable-opa" value="true"/>
+        <property key="enable-all-optimizations" value="true"/>
+        <property key="preprocessor-macros" value=""/>
+        <property key="default-char-unsigned" value="false"/>
+        <property key="optimization-master" value="Enable all"/>
+        <property key="code-model" value="mS"/>
+        <property key="warning-level" value="2"/>
+        <property key="extra-include-directories" value=""/>
+        <property key="enable-ow" value="true"/>
+        <property key="verbose" value="false"/>
+        <property key="enable-ou" value="true"/>
+        <property key="enable-ot" value="true"/>
+        <property key="enable-os" value="true"/>
+        <property key="data-model" value="Oa-"/>
+        <property key="enable-or" value="true"/>
+        <property key="enable-op" value="true"/>
+        <property key="enable-on" value="true"/>
+        <property key="enable-om" value="true"/>
+        <property key="procedural-abstraction-passes" value="0"/>
+        <property key="enable-multi-bank-stack-model" value="false"/>
+        <property key="enable-int-promotion" value="false"/>
+        <property key="enable-od" value="true"/>
+        <property key="enable-ob" value="true"/>
       </C18>
       <C18-AS>
       </C18-AS>
@@ -68,7 +90,7 @@
       <PICkit3PlatformTool>
         <property key="programoptions.preserveprogramrange.end" value="0x3f"/>
         <property key="memories.id" value="false"/>
-        <property key="Freeze Peripherals" value="false"/>
+        <property key="Freeze Peripherals" value="true"/>
         <property key="programoptions.preserveeeprom" value="false"/>
         <property key="programmertogo.imagename" value=""/>
         <property key="memories.programmemory" value="true"/>
@@ -76,17 +98,17 @@
         <property key="AutoSelectMemRanges" value="auto"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="programoptions.usehighvoltageonmclr" value="false"/>
-        <property key="hwtoolclock.units" value="mips"/>
         <property key="memories.eeprom" value="false"/>
-        <property key="ToolFirmwareFilePath" value=""/>
+        <property key="ToolFirmwareFilePath"
+                  value="Press to browse for a specific firmware version"/>
+        <property key="ToolFirmwareOption.UseLatestFirmware" value="true"/>
         <property key="programoptions.preserveprogramrange.start" value="0x0"/>
-        <property key="hwtoolclock.instructionspeed" value=""/>
         <property key="voltagevalue" value="5.0"/>
         <property key="programoptions.preserveprogramrange" value="false"/>
-        <property key="memories.programmemory.start" value="0x0"/>
         <property key="programoptions.eraseb4program" value="true"/>
+        <property key="memories.programmemory.start" value="0x0"/>
         <property key="memories.programmemory.end" value="0x7fff"/>
-        <property key="poweroptions.powerenable" value="true"/>
+        <property key="poweroptions.powerenable" value="false"/>
       </PICkit3PlatformTool>
     </conf>
   </confs>

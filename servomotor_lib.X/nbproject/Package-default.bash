@@ -10,9 +10,9 @@ CND_CONF=default
 CND_DISTDIR=dist
 TMPDIR=build/${CND_CONF}/${IMAGE_TYPE}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/timerservo.X.${IMAGE_TYPE}.cof
-OUTPUT_BASENAME=timerservo.X.${IMAGE_TYPE}.cof
-PACKAGE_TOP_DIR=timerservo.x/
+OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/servomotor_lib.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+OUTPUT_BASENAME=servomotor_lib.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+PACKAGE_TOP_DIR=servomotorlib.x/
 
 # Functions
 function checkReturnCode
@@ -57,15 +57,15 @@ mkdir -p ${TMPDIR}
 
 # Copy files and create directories and links
 cd "${TOP}"
-makeDirectory ${TMPDIR}/timerservo.x/bin
+makeDirectory ${TMPDIR}/servomotorlib.x/bin
 copyFileToTmpDir "${OUTPUT_PATH}" "${TMPDIR}/${PACKAGE_TOP_DIR}bin/${OUTPUT_BASENAME}" 0755
 
 
 # Generate tar file
 cd "${TOP}"
-rm -f ${CND_DISTDIR}/${CND_CONF}/package/timerservo.x.tar
+rm -f ${CND_DISTDIR}/${CND_CONF}/package/servomotorlib.x.tar
 cd ${TMPDIR}
-tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/timerservo.x.tar *
+tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/servomotorlib.x.tar *
 checkReturnCode
 
 # Cleanup
