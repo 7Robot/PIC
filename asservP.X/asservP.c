@@ -71,7 +71,7 @@ long Rconsigne=0, Eposition=0;
 long dTicksp=0, gTicksp=0;
 int gVitesse=0, dVitesse=0;
 int gConsigne = 0, dConsigne=0, dErreur=0, gErreur=0, gIErreur=0, dIErreur=0;
-char Gsens = 1, Dsens = 1, prevB = 0,position=0;
+char Gsens = 1, Dsens = 1, prevB = 0,position=0,psens=1;
 
 
 /////*Interruptions*/////
@@ -155,9 +155,10 @@ void low_isr(void)
         if(position)
         {
             r = Kr*(gTicks+dTicks)/2;
-            Eposition = (Rconsigne-fabs(2*r-Rconsigne))/2;
-            Eposition = Eposition/20 ;
+            Eposition = Rconsigne-fabs(2*r+Rconsigne);
+            Eposition = Eposition/100;
             if(Eposition > Vmax) Eposition = Vmax;
+            
             Vconsigne(Eposition+1,Eposition+1);
         }
 
@@ -216,7 +217,8 @@ void main (void)
 
     resetTicks();
     position = 1;
-    Rconsigne = 1*TourRoue;
+    //Rconsigne = (10*TourRoue)-TourRoue/22;
+    Rconsigne = 10*TourRoue;
 
 
         while(1);
@@ -275,10 +277,10 @@ void DsetDC(int dc)
 void Vconsigne(int Vg, int Vd)
 {
     /* Consigne de vitesse pour les moteurs entre 0 et Vmax. */
-    gConsigne = Vg;
-    dConsigne = Vd;
     if(Vg >= Vmax) gConsigne= Vmax;
+    else gConsigne = Vg;
     if(Vd >= Vmax) dConsigne= Vmax;
+    else dConsigne = Vd;
 }
 
 void resetTicks(void)
