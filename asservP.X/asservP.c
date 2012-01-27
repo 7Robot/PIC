@@ -53,6 +53,7 @@ void resetTicks(void);
 
 
 #define TourRoue 3072 // ticks par tour de roue
+#define TourRobot 8424 // ticks pour 360 degres
 #define Vmax 80
 #define TicksAcc 3*TourRoue
 
@@ -66,7 +67,7 @@ void resetTicks(void);
 
 /////*VARIABLES GLOBALES*/////
 unsigned int i=0;
-long gTicks=0, dTicks=0, r=0;
+long gTicks=0, dTicks=0, r=0, test=0;
 long Rconsigne=0, Eposition=0;
 long dTicksp=0, gTicksp=0;
 int gVitesse=0, dVitesse=0;
@@ -151,18 +152,65 @@ void low_isr(void)
         DsetDC(Kp*dErreur + Ki*dIErreur);
 
         
-        /* Calcul profil. */
+        /* Calcul profil droit. */
         if(position)
         {
             r = Kr*(gTicks+dTicks)/2;
-            Eposition = Rconsigne-fabs(2*r+Rconsigne);
-            Eposition = Eposition/100;
+            Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
+            Eposition = Eposition/50;
             if(Eposition > Vmax) Eposition = Vmax;
-            
-            Vconsigne(Eposition+1,Eposition+1);
+            if(Eposition == 0 && r < 100) Eposition = 1;
+            if(Rconsigne < 0) Eposition = -Eposition;
+            Vconsigne(Eposition,Eposition);
+
+            if(fabs(r-Rconsigne) < 30)
+            {   
+                //DelayMS(100);
+                //resetTicks();
+                //Rconsigne = 0;
+                //position=0;
+                //r=0;
+                //Eposition=0;
+                led = 1;
+                Vconsigne(0,0);
+                resetTicks();
+                position=0;
+
+
+            }
         }
 
-        led = led^1;
+        /* Calcul profil rotation. */
+        if(position==-1)
+        {
+            r = Kr*(gTicks-dTicks)/2;
+            Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
+            Eposition = Eposition/50;
+            if(Eposition > Vmax) Eposition = Vmax;
+
+            if(Eposition == 0 && r < 100) Eposition = 1;
+            if(Rconsigne < 0) Eposition = -Eposition;
+
+            Vconsigne(Eposition,-Eposition);
+
+            if(fabs(r-Rconsigne) < 30)
+            {
+                //DelayMS(100);
+                //resetTicks();
+                //Rconsigne = 0;
+                //position=0;
+                //r=0;
+                //Eposition=0;
+                led = 1;
+                Vconsigne(0,0);
+                resetTicks();
+                position=0;
+
+
+            }
+        }
+
+        
         INTCONbits.TMR0IF = 0; //On efface tous les flags pour faire comme
         INTCONbits.INT0IF = 0; // si rien ne c'etait passé
         INTCON3bits.INT1IF = 0;
@@ -215,14 +263,41 @@ void main (void)
     INTCONbits.GIEH = 1;
     INTCONbits.GIEL = 1;
 
+
+    Vconsigne(-10,-10);
+    DelayMS(1000);
+    Vconsigne(0,0);
     resetTicks();
+
     position = 1;
-    //Rconsigne = (10*TourRoue)-TourRoue/22;
     Rconsigne = 10*TourRoue;
 
+    while(position)
+    {
+        DelayMS(10);
+    }
 
-        while(1);
-  
+    position = -1;
+    Rconsigne = TourRobot/2;
+
+    while(position)
+    {
+        DelayMS(10);
+    }
+
+    position = 1;
+    Rconsigne = 10*TourRoue;
+
+    while(position)
+    {
+        DelayMS(10);
+    }
+
+
+
+    
+    while(1);
+    
 }
 
 
@@ -285,6 +360,17 @@ void Vconsigne(int Vg, int Vd)
 
 void resetTicks(void)
 {
+    /* Attention, on reset aussi l'asserv !*/
     gTicks = 0;
     dTicks = 0;
+    gTicksp = 0;
+    dTicksp = 0;
+
+    INTCONbits.TMR0IE = 0;
+    dErreur=0;
+    gErreur=0;
+    gIErreur=0;
+    dIErreur=0;
+    INTCONbits.TMR0IE = 1;
 }
+
