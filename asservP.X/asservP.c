@@ -1,3 +1,18 @@
+/*
+ * Programme d'asservissement vitesse et position du petit robot
+ * Eurobot 2012
+ * Compiler : Microchip C18
+ * µC : 18f25K80
+ * Jan.21 2011
+ *    ____________      _           _
+ *   |___  /| ___ \    | |         | |
+ *      / / | |_/ /___ | |__   ___ | |_
+ *     / /  |    // _ \| '_ \ / _ \| __|
+ *    / /   | |\ \ (_) | |_) | (_) | |_
+ *   /_/    |_| \_\___/|____/ \___/'\__|
+ *			      7robot.fr
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <delays.h>
@@ -20,7 +35,7 @@
 #pragma config BORV = 0
 #pragma config WDTEN = OFF
 #pragma config CANMX = PORTB
-#pragma config MSSPMSK = MSK5 /// A voir
+#pragma config MSSPMSK = MSK5
 #pragma config MCLRE = ON
 #pragma config STVREN = ON
 #pragma config BBSIZ = BB2K
@@ -36,7 +51,11 @@ void Vconsigne(int Vg, int Vd);
 void resetTicks(void);
 
 /////*CONSTANTES*/////
-#define led LATAbits.LATA5
+#define FCY 16000000  /*  Fréquence d'exécution des instructions = 4*16Mhz/4 = 16MHz. */
+
+#define led LATAbits.LATA5 //Essayer de mettre PORT à la place
+                            // ne devrait rien changer avec le jeu d'instruction réduit...
+
 
 #define in1  LATCbits.LATC5
 #define in2  LATCbits.LATC4
@@ -51,28 +70,35 @@ void resetTicks(void);
 #define riseGchA INTCON2bits.INTEDG0
 #define riseDchA INTCON2bits.INTEDG1
 
-
-#define TourRoue 3072 // ticks par tour de roue
-#define TourRobot 8424 // ticks pour 360 degres
-#define Vmax 80
-#define TicksAcc 3*TourRoue
-
-
+#define TourRoue 3072   /* Ticks par tour de roue (théorique) */
+#define TourRobot 8424  /* Ticks pour 360 degres (théorique) */
+#define Vmax 80         /* Vitesse de plateau des rampes. */
+//#define TicksAcc 3*TourRoue /* Pente des rampes. */
 
 #define Kp 10
 #define Ki 10
 
 #define Kr 1 // Conversion ticks-mm
- //Pente acc/decceleration
+
 
 /////*VARIABLES GLOBALES*/////
-unsigned int i=0;
-long gTicks=0, dTicks=0, r=0, test=0;
-long Rconsigne=0, Eposition=0;
-long dTicksp=0, gTicksp=0;
-int gVitesse=0, dVitesse=0;
-int gConsigne = 0, dConsigne=0, dErreur=0, gErreur=0, gIErreur=0, dIErreur=0;
-char Gsens = 1, Dsens = 1, prevB = 0,position=0,psens=1;
+unsigned int i=0; /* Variable à usage général... */
+
+/*Variables calcul vitesse */
+long gTicks=0, dTicks=0;    /* Compteurs incrémentaux. cf Interruptions PORTB0,1,4,5 */
+long dTicksp=0, gTicksp=0;  /* Valeurs intérmédaires pour calcul vitesse. cf interrupt TMR0*/
+int gVitesse=0, dVitesse=0; /* Vitesses instantanées. */
+char Gsens = 1, Dsens = 1;  /* Sens de rotation (+1 ou -1)*/
+char prevB = 0;             /*Valeur précédente du PORTB, pour déterminer type de front*/
+
+/* Variables asserv vitesse PI(D) */
+int gConsigne = 0, dConsigne=0;     /* Consignes de vitesse des moteurs gauche et droit. */
+int dErreur=0, gErreur=0, gIErreur=0, dIErreur=0; /* Termes d'erreurs P et I*/
+
+/* Variables asserv position P */
+long r = 0; /* Position rectiligne ou angulaire. */
+long Rconsigne=0, Eposition=0; /*Consigne et erreur de position (anglulaire ou rectiligne)*/
+char mode=0; /* Mode de fonctionnement 0:off, 1:ligne, -1:rotation */
 
 
 /////*Interruptions*/////
@@ -91,41 +117,46 @@ void low_interrupt(void)
 #pragma interrupt high_isr
 void high_isr(void)
 {
-   
-   /* Interruptions GchA, detecte fronts, determine le sens, et in(dé)cremente*/
+   /*Les interruptions de haut niveau concernent uniquement le comptage des ticks,
+    en effet, elles sont fréquentes et ne doivent pas être "manquées" pour assurer
+    de la précision dans l'asserv de position.
+    
+    Elles sont très rapides et bien qu'elles soient asynchrones les unes par rapport
+    aux autres, il est peu probables que deux d'entre elles déclenchent en même temps.
+    */
+
+   /* Interruptions GchA, detecte fronts, determine le sens, et in(dé)cremente. */
    if(INTCONbits.INT0IE && INTCONbits.INT0IF)
    {
-       INTCONbits.INT0IF = 0; // flag au debut pour capter autre
        Gsens = -1;
-       if((riseGchA && GchB) || (!riseGchA && !GchB)) //front montant
+       if((riseGchA && GchB) || (!riseGchA && !GchB)) /* Si front montant. */
           Gsens = 1;
-
-       riseGchA = riseGchA^1;
+       riseGchA = riseGchA^1; /* Inversion du type de front déclenchant l'interruption. */
        gTicks += Gsens;
+       INTCONbits.INT0IF = 0;
    }
 
    /* Interruptions DchA, deteche fronts, determine sens, et in(dé)crémente*/
    if(INTCON3bits.INT1E && INTCON3bits.INT1IF)
    {
-       INTCON3bits.INT1IF = 0;
+
        Dsens = 1;
-       if((riseDchA && DchB) || (!riseDchA && !DchB)) //front montant
+       if((riseDchA && DchB) || (!riseDchA && !DchB)) /* Si front montant. */
           Dsens = -1;
 
-       riseDchA = riseDchA^1;
+       riseDchA = riseDchA^1; /* Inversion du type de front déclenchant l'interruption. */
        dTicks += Dsens;
+       INTCON3bits.INT1IF = 0;
    }
 
    /*Interruptions GchB et DchB, détecte fronts, utilise le sens déterminé par les autres*/
    if(INTCONbits.RBIE && INTCONbits.RBIF)
    {
-       if((PORTB^prevB) & 0b00010000) gTicks += Gsens;
-       else if((PORTB^prevB) & 0b00100000) dTicks += Dsens;
-       prevB = PORTB; //très important
-       INTCONbits.RBIF = 0; // mettre à la fin car modifier par PORTB
-   }
-
-    
+       if((PORTB^prevB) & 0b00010000) gTicks += Gsens;      /* Si GchB a déclenché. */
+       else if((PORTB^prevB) & 0b00100000) dTicks += Dsens; /* Si DchB a déclenché. */
+       prevB = PORTB; /* Sauvegarde de la valeur du PORTB */
+       INTCONbits.RBIF = 0; 
+   }   
 }
 
 #pragma interrupt low_isr
@@ -134,13 +165,17 @@ void low_isr(void)
     
     if(INTCONbits.TMR0IE && INTCONbits.TMR0IF)
     {
+     /*L'interruption TMR0 gère la fréquence de calcul des asservs. Elle soit être assez
+     rapide pour assurer de ma réactivité, mais pas trop longue pour collecter assez de ticks
+     entre deux calculs. La fréquence est fixée à environ 30Hz.*/
+
         /* Calcul vitesse*/
         gVitesse = gTicks - gTicksp;
         dVitesse = dTicks - dTicksp;
         gTicksp = gTicks;
         dTicksp = dTicks;
 
-        /* Calcul erreur */
+        /* Calcul erreur vitesse*/
         dErreur = dConsigne - dVitesse;
         gErreur = gConsigne - gVitesse;
 
@@ -153,7 +188,7 @@ void low_isr(void)
 
         
         /* Calcul profil droit. */
-        if(position)
+        if(mode == 1)
         {
             r = Kr*(gTicks+dTicks)/2;
             Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
@@ -174,14 +209,14 @@ void low_isr(void)
                 led = 1;
                 Vconsigne(0,0);
                 resetTicks();
-                position=0;
+                mode = 0;
 
 
             }
         }
 
         /* Calcul profil rotation. */
-        if(position==-1)
+        if(mode == -1)
         {
             r = Kr*(gTicks-dTicks)/2;
             Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
@@ -204,17 +239,11 @@ void low_isr(void)
                 led = 1;
                 Vconsigne(0,0);
                 resetTicks();
-                position=0;
+                mode = 0;
 
 
             }
         }
-
-        
-        INTCONbits.TMR0IF = 0; //On efface tous les flags pour faire comme
-        INTCONbits.INT0IF = 0; // si rien ne c'etait passé
-        INTCON3bits.INT1IF = 0;
-        INTCONbits.RBIF = 0;
     }
 }
 
@@ -242,15 +271,16 @@ void main (void)
     SetDCPWM3(0);
     SetDCPWM4(0);
 
-    /*Interruptions portB*/
+    /*Interruptions du PORTB (haute priorité par défaut) */
     OpenRB0INT( PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
     OpenRB1INT( PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
     OpenPORTB( PORTB_CHANGE_INT_ON & PORTB_PULLUPS_OFF);
     IOCB = 0b00110000 ;
 
-    /*Timer0 interrupt pour calcul asserv*/
+    /*Timer0 interrupt pour calculs asserv*/
     OpenTimer0( TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_4 );
-    INTCON2bits.TMR0IP = 0 ; //Basse priorité pour ne pas rater de ticks 
+    INTCON2bits.TMR0IP = 0 ; /*Basse priorité pour ne pas rater de ticks */
+
     /* Signal de démarrage du programme. */
     led = 0;
     for(i=0;i<20;i++)
@@ -259,50 +289,53 @@ void main (void)
         DelayMS(50);
     }
 
-    RCONbits.IPEN = 1; // priorités, par défaut : haute
-    INTCONbits.GIEH = 1;
-    INTCONbits.GIEL = 1;
+    RCONbits.IPEN = 1; /* On active les niveaux d'interruption... */
+    INTCONbits.GIEH = 1; /* Autorisation des interruptions de haut niveau. */
+    INTCONbits.GIEL = 1; /* Autorisation des interruptions de bas niveau. */
 
+
+
+    ///PROGRAMME DE TEST
+    // sera vide en pratique car les consignes viendront du CAN
 
     Vconsigne(-10,-10);
     DelayMS(1000);
     Vconsigne(0,0);
     resetTicks();
 
-    position = 1;
+    mode = 1;
     Rconsigne = 10*TourRoue;
 
-    while(position)
+    while(mode)
     {
         DelayMS(10);
     }
 
-    position = -1;
+    mode = -1;
     Rconsigne = TourRobot/2;
 
-    while(position)
+    while(mode)
     {
         DelayMS(10);
     }
 
-    position = 1;
+    mode = 1;
     Rconsigne = 10*TourRoue;
 
-    while(position)
+    while(mode)
     {
         DelayMS(10);
     }
-
-
-
     
     while(1);
     
 }
 
-
+///// Définition des fonctions du programme. /////
 void DelayMS(int delay)
 {
+    /*Attente en ms, sur cette carte c'est utile, et vu que le Quart est soudé,
+     il y a peu de raisons pour que ça change...*/
     int cp = 0;
     for(cp=0; cp<delay; cp++)
     {
@@ -310,6 +343,9 @@ void DelayMS(int delay)
     }
 }
 
+/*Les fonctions GsetDC et DsetDC permettent la commande du pont en H intégré à la carte.
+ En plus de modifier le rapport cyclique des PWM3 et 4 elles modifient le sens de rotation
+ du moteur (ie. la tension à ses bornes) en fonction du signe de l'argument (dc). */
 void GsetDC(int dc)
 {
 
@@ -351,7 +387,8 @@ void DsetDC(int dc)
 
 void Vconsigne(int Vg, int Vd)
 {
-    /* Consigne de vitesse pour les moteurs entre 0 et Vmax. */
+    /* Consigne de vitesse pour les moteurs entre 0 et Vmax.
+       Permet de gérer la saturation en vitesse. */
     if(Vg >= Vmax) gConsigne= Vmax;
     else gConsigne = Vg;
     if(Vd >= Vmax) dConsigne= Vmax;
@@ -360,6 +397,7 @@ void Vconsigne(int Vg, int Vd)
 
 void resetTicks(void)
 {
+    /*Reset le comptage des ticks, utile entre deux consignes de position...*/
     /* Attention, on reset aussi l'asserv !*/
     gTicks = 0;
     dTicks = 0;
