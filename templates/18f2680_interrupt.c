@@ -1,9 +1,8 @@
 /*
-* Programme ARM petit robot
-* Eurobot 2012
+* Template PIC18F
 * Compiler : Microchip C18
-* µC : 18f2680
-* Jan.21 2011
+* ÂµC : 18f2680
+* Nov.10 2011
 *    ____________      _           _
 *   |___  /| ___ \    | |         | |
 *      / / | |_/ /___ | |__   ___ | |_
@@ -20,7 +19,7 @@
 
 
 /////*CONFIGURATION*/////
-#pragma config OSC = HS
+#pragma config OSC = IRCIO67
 #pragma config FCMEN = OFF
 #pragma config IESO = OFF
 #pragma config PWRT = OFF
@@ -34,18 +33,15 @@
 #pragma config LVP = OFF
 
 /////*CONSTANTES*/////
-#define XTAL    20000000
-#define led     PORTAbits.RA0
-#define on     PORTAbits.RA1
 
+#define led PORTCbits.RC0
 
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
-void DelayMS(int delay);
 
 /////*VARIABLES GLOBALES*/////
-int i=0;
+
 
 /////*INTERRUPTIONS*/////
 
@@ -86,46 +82,20 @@ void main (void)
     ADCON1 = 0x0F ;
     ADCON0 = 0b00000000;
     WDTCON = 0 ;
-    on = 0 ; /*Hold off. */
 
     /* Configurations. */
-    TRISA   = 0b11111100 ;
+    TRISA   = 0b11000011 ;
     TRISB   = 0b01111111 ;
-    TRISC   = 0b11111111 ;
+    TRISC   = 0b11111000 ;
     
-    //OpenTimer0(TIMER_INT_OFF & T0_SOURCE_INT & T0_16BIT & T0_PS_1_8);
+    OpenTimer0(TIMER_INT_ON & T0_SOURCE_INT & T0_16BIT & T0_PS_1_4);
 
-    /* Signal de démarrage du programme. */
-    led = 0;
-    for(i=0;i<20;i++)
-    {
-        led=led^1;
-        DelayMS(50);
-    }
-
-    INTCONbits.GIE = 0; /* Autorise interruptions. */
-
-    DelayMS(1000);
-
-    led = 1;
-    on = 1; /* Démarre tous les autres pics*/
+    INTCONbits.GIE = 1; /* Autorise interruptions. */
 
     /* Boucle principale. */
      while(1)
     {
 
-    }
-}
-
-///// Définition des fonctions du programme. /////
-void DelayMS(int delay)
-{
-    /*Attente en ms, sur cette carte c'est utile, et vu que le Quart est soudé,
-     il y a peu de raisons pour que ça change...*/
-    int cp = 0;
-    for(cp=0; cp<delay; cp++)
-    {
-        Delay1KTCYx(5);
     }
 }
 

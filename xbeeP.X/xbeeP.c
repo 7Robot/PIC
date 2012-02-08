@@ -1,5 +1,5 @@
 /*
-* Programme ARM petit robot
+* Programme espion Xbee petit robot
 * Eurobot 2012
 * Compiler : Microchip C18
 * µC : 18f2680
@@ -36,7 +36,6 @@
 /////*CONSTANTES*/////
 #define XTAL    20000000
 #define led     PORTAbits.RA0
-#define on     PORTAbits.RA1
 
 
 /////*PROTOTYPES*/////
@@ -86,14 +85,13 @@ void main (void)
     ADCON1 = 0x0F ;
     ADCON0 = 0b00000000;
     WDTCON = 0 ;
-    on = 0 ; /*Hold off. */
 
     /* Configurations. */
     TRISA   = 0b11111100 ;
     TRISB   = 0b01111111 ;
     TRISC   = 0b11111111 ;
     
-    //OpenTimer0(TIMER_INT_OFF & T0_SOURCE_INT & T0_16BIT & T0_PS_1_8);
+    OpenTimer0(TIMER_INT_OFF & T0_SOURCE_INT & T0_16BIT & T0_PS_1_8);
 
     /* Signal de démarrage du programme. */
     led = 0;
@@ -103,12 +101,10 @@ void main (void)
         DelayMS(50);
     }
 
-    INTCONbits.GIE = 0; /* Autorise interruptions. */
+    INTCONbits.GIE = 1; /* Autorise interruptions. */
 
     DelayMS(1000);
 
-    led = 1;
-    on = 1; /* Démarre tous les autres pics*/
 
     /* Boucle principale. */
      while(1)

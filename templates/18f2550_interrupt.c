@@ -1,9 +1,8 @@
 /*
-* Programme PIC carte d'alim petit robot
-* Eurobot 2012
+* Template PIC18F
 * Compiler : Microchip C18
-* µC : 18f2680
-* Jan.21 2011
+* ÂµC : 18f2550
+* Nov.10 2011
 *    ____________      _           _
 *   |___  /| ___ \    | |         | |
 *      / / | |_/ /___ | |__   ___ | |_
@@ -15,36 +14,36 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <p18f2680.h>
-#include <delays.h>
-#include <timers.h>
+#include <p18f2550.h>
 
 
 /////*CONFIGURATION*/////
-#pragma config OSC = HS
-#pragma config FCMEN = OFF
+#pragma config FOSC = HS
+#pragma config FCMEN = ON
 #pragma config IESO = OFF
 #pragma config PWRT = OFF
+#pragma config BOR = ON
+#pragma config BORV = 2
+#pragma config VREGEN = ON
 #pragma config WDT = OFF
 #pragma config MCLRE = ON
 #pragma config LPT1OSC = OFF
 #pragma config PBADEN = OFF
-#pragma config DEBUG = OFF
-#pragma config XINST = OFF
-#pragma config BBSIZ = 1024
+#pragma config CCP2MX = ON
 #pragma config LVP = OFF
+#pragma config DEBUG = OFF
+#pragma config PLLDIV = 4
 
 /////*CONSTANTES*/////
-#define XTAL    20000000
-#define led     PORTAbits.RA5
+
+#define led PORTCbits.RC0
 
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
-void DelayMS(int delay);
 
 /////*VARIABLES GLOBALES*/////
-int i=0;
+
 
 /////*INTERRUPTIONS*/////
 
@@ -77,43 +76,26 @@ void low_isr(void)
 void main (void)
 {
     /* Initialisations. */
-    ADCON1 = 0x0F ;
-    ADCON0 = 0x00 ;
-    WDTCON = 0x00 ;
+    CMCON   =  0b00000111; /* DÃ©sactive les comparateurs. */
+    ADCON0  = 0b00000000;  /* DÃ©sactive le module A/D. */
+    ADCON1  = 0b00001111;
+    WDTCON  = 0 ;
+    OSCCON  = 0b01111100;
+    UCON    = 0 ;           /* DÃ©sactive l'USB. */
+    UCFG    = 0b00001000 ;
 
     /* Configurations. */
-    TRISA   = 0x11011111 ;
-    TRISB   = 0xFF;
-    PORTC   = 0xFF; 
+    TRISA   = 0b11000011 ;
+    TRISB   = 0b01111111 ;
+    TRISC   = 0b11111000 ;
+    
 
-
-    /* Signal de démarrage du programme. */
-    led = 1;
-    for(i=0;i<20;i++)
-    {
-        led=led^1;
-        DelayMS(50);
-    }
-    led = 0;
-
-    INTCONbits.GIE = 0;
+    INTCONbits.GIE = 1; /* Autorise interruptions. */
 
     /* Boucle principale. */
      while(1)
     {
 
-    }
-}
-
-///// Définition des fonctions du programme. /////
-void DelayMS(int delay)
-{
-    /*Attente en ms, sur cette carte c'est utile, et vu que le Quart est soudé,
-     il y a peu de raisons pour que ça change...*/
-    int cp = 0;
-    for(cp=0; cp<delay; cp++)
-    {
-        Delay1KTCYx(5);
     }
 }
 
