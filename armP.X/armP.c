@@ -51,6 +51,7 @@ char message[8]="";
 char message1[8]="un";
 char message2[8]="deux";
 char message3[8]="trois";
+char messagetest[8] = "ENSEE";
 char lengh = 0;
 
 /////*INTERRUPTIONS*/////
@@ -151,27 +152,32 @@ void main (void)
 
     led = 1;
     on = 1; /* Démarre tous les autres pics*/
-    DelayMS(2000); // On attents qu'ils démarrent
+    DelayMS(2000); // On attend qu'ils démarrent
 
     /* Boucle principale. */
      while(1)
     {
 
          /*Programme de test pour flooder le bus.*/
-         DelayMS(1000);
+         DelayMS(500);
          while(!CANIsTxReady());
          lengh = 2;
          CANSendMessage(0b00000000001,message1,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
          led = led^1;
-         DelayMS(1000);
+         DelayMS(500);
          while(!CANIsTxReady());
          lengh = 4;
          CANSendMessage(0b00000000010,message2,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
          led = led^1;
-         DelayMS(1000);
+         DelayMS(500);
          while(!CANIsTxReady());
          lengh = 5;
          CANSendMessage(0b00000000100,message3,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+         led = led^1;
+         DelayMS(500);
+         while(!CANIsTxReady());
+         lengh = 5;
+         CANSendMessage(0xAA,messagetest,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
          led = led^1;
          
      }
@@ -188,4 +194,6 @@ void DelayMS(int delay)
         Delay1KTCYx(5);
     }
 }
+
+
 
