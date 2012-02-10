@@ -17,7 +17,8 @@
 #include <stdlib.h>
 #include <timers.h>
 #include <p18f2680.h>
-
+#include "../libcan/can18xx8.h"
+#include <usart.h>
 
 /////*CONFIGURATION*/////
 #pragma config OSC = HS
@@ -46,6 +47,12 @@ void DelayMS(int delay);
 
 /////*VARIABLES GLOBALES*/////
 int i=0;
+char message[8]="";
+char message1[8]="un";
+char message2[8]="deux";
+char message3[8]="trois";
+char messagetest[8] = "ENSEE";
+char lengh = 0;
 
 /////*INTERRUPTIONS*/////
 
@@ -92,8 +99,44 @@ void main (void)
     TRISA   = 0b11111100 ;
     TRISB   = 0b01111111 ;
     TRISC   = 0b11111111 ;
-    
-    //OpenTimer0(TIMER_INT_OFF & T0_SOURCE_INT & T0_16BIT & T0_PS_1_8);
+
+
+    /*Configuration du port série*/
+    OpenUSART( USART_TX_INT_OFF & USART_RX_INT_OFF
+                & USART_ASYNCH_MODE & USART_EIGHT_BIT
+                & USART_CONT_RX & USART_BRGH_HIGH, 10); //115200, 1,2% err...
+
+    /*Configuration du CAN*/
+    CANInitialize(1,5,7,6,2,CAN_CONFIG_VALID_STD_MSG);
+    Delay10KTCYx(200);
+
+    // Interruptions Buffer1
+    IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
+    PIE3bits.RXB1IE=1;//autorise int sur buff1
+    PIR3bits.RXB1IF=0;//mise a 0 du flag
+
+    // Interruption Buffer 0
+    IPR3bits.RXB0IP=1;// : priorité haute par defaut du buff 1
+    PIE3bits.RXB0IE=1;//autorise int sur buff1
+    PIR3bits.RXB0IF=0;//mise a 0 du flag
+
+
+    // Configuration des masques et filtres
+    // Set CAN module into configuration mode
+    CANSetOperationMode(CAN_OP_MODE_CONFIG);
+    // Set Buffer 1 Mask value
+    CANSetMask(CAN_MASK_B1, 0b1111,CAN_CONFIG_STD_MSG);
+    // Set Buffer 2 Mask value
+    CANSetMask(CAN_MASK_B2, 0b1111,CAN_CONFIG_STD_MSG );
+    // Set Buffer 1 Filter values
+    CANSetFilter(CAN_FILTER_B1_F1,0b0011,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F1,0b1100,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F3,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F4,0b0000,CAN_CONFIG_STD_MSG );
+    // Set CAN module into Normal mode
+    CANSetOperationMode(CAN_OP_MODE_NORMAL);
 
     /* Signal de démarrage du programme. */
     led = 0;
@@ -109,12 +152,35 @@ void main (void)
 
     led = 1;
     on = 1; /* Démarre tous les autres pics*/
+    DelayMS(2000); // On attend qu'ils démarrent
 
     /* Boucle principale. */
      while(1)
     {
 
-    }
+         /*Programme de test pour flooder le bus.*/
+         DelayMS(500);
+         while(!CANIsTxReady());
+         lengh = 2;
+         CANSendMessage(0b00000000001,message1,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+         led = led^1;
+         DelayMS(500);
+         while(!CANIsTxReady());
+         lengh = 4;
+         CANSendMessage(0b00000000010,message2,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+         led = led^1;
+         DelayMS(500);
+         while(!CANIsTxReady());
+         lengh = 5;
+         CANSendMessage(0b00000000100,message3,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+         led = led^1;
+         DelayMS(500);
+         while(!CANIsTxReady());
+         lengh = 5;
+         CANSendMessage(0xAA,messagetest,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+         led = led^1;
+         
+     }
 }
 
 ///// Définition des fonctions du programme. /////
@@ -128,4 +194,6 @@ void DelayMS(int delay)
         Delay1KTCYx(5);
     }
 }
+
+
 

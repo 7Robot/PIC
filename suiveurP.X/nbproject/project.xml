@@ -6,7 +6,7 @@
             <name>suiveurP</name>
             <creation-uuid>bcfa1431-ded0-4c7f-9449-fef52b847943</creation-uuid>
             <make-project-type>0</make-project-type>
-            <c-extensions/>
+            <c-extensions>c</c-extensions>
             <cpp-extensions/>
             <header-extensions/>
             <sourceEncoding>ISO-8859-1</sourceEncoding>

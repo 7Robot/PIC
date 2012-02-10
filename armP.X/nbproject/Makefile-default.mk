@@ -39,11 +39,11 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/armP.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/armP.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/armP.o ${OBJECTDIR}/_ext/1018694054/can18xx8.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/armP.o.d ${OBJECTDIR}/_ext/1018694054/can18xx8.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/armP.o
+OBJECTFILES=${OBJECTDIR}/armP.o ${OBJECTDIR}/_ext/1018694054/can18xx8.o
 
 
 CFLAGS=
@@ -95,12 +95,24 @@ ${OBJECTDIR}/armP.o: armP.c  nbproject/Makefile-${CND_CONF}.mk
 	${MP_CC} $(MP_EXTRA_CC_PRE) -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1 -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/armP.o   armP.c 
 	@${DEP_GEN} -d ${OBJECTDIR}/armP.o 
 	
+${OBJECTDIR}/_ext/1018694054/can18xx8.o: ../libcan/can18xx8.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/1018694054 
+	@${RM} ${OBJECTDIR}/_ext/1018694054/can18xx8.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1 -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/_ext/1018694054/can18xx8.o   ../libcan/can18xx8.c 
+	@${DEP_GEN} -d ${OBJECTDIR}/_ext/1018694054/can18xx8.o 
+	
 else
 ${OBJECTDIR}/armP.o: armP.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR} 
 	@${RM} ${OBJECTDIR}/armP.o.d 
 	${MP_CC} $(MP_EXTRA_CC_PRE) -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/armP.o   armP.c 
 	@${DEP_GEN} -d ${OBJECTDIR}/armP.o 
+	
+${OBJECTDIR}/_ext/1018694054/can18xx8.o: ../libcan/can18xx8.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/1018694054 
+	@${RM} ${OBJECTDIR}/_ext/1018694054/can18xx8.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/_ext/1018694054/can18xx8.o   ../libcan/can18xx8.c 
+	@${DEP_GEN} -d ${OBJECTDIR}/_ext/1018694054/can18xx8.o 
 	
 endif
 
