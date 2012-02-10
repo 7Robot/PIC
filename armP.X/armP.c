@@ -1,5 +1,5 @@
 /*
-* Programme ARM petit robot
+* Programme espion Xbee petit robot
 * Eurobot 2012
 * Compiler : Microchip C18
 * µC : 18f2680
@@ -17,8 +17,9 @@
 #include <stdlib.h>
 #include <timers.h>
 #include <p18f2680.h>
-#include "../libcan/can18xx8.h"
 #include <usart.h>
+#include <delays.h>
+#include "../libcan/can18xx8.h"
 
 /////*CONFIGURATION*/////
 #pragma config OSC = HS
@@ -37,23 +38,38 @@
 /////*CONSTANTES*/////
 #define XTAL    20000000
 #define led     PORTAbits.RA0
-#define on     PORTAbits.RA1
+#define on      PORTAbits.RA1
+
+#define attenteFD 0
+#define attenteSize 1
+#define attenteIdL 2
+#define collecteData 3
+#define verifBF 4
+
+//a mettre ds .h du can ?
+typedef struct{
+    long id;
+    char len;
+    char data[8];
+    enum CAN_RX_MSG_FLAGS flags;
+}CANmsg;
 
 
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
 void DelayMS(int delay);
+void CANtoUSART(CANmsg * msg);
 
 /////*VARIABLES GLOBALES*/////
 int i=0;
-char message[8]="";
-char message1[8]="un";
-char message2[8]="deux";
-char message3[8]="trois";
-char messagetest[8] = "ENSEE";
-char lengh = 0;
-
+CANmsg message;
+CANmsg newMessage;
+char x=0;
+char rescp = 0;
+char Rstate =0;
+char incoming=0;
+char tmp=0;
 /////*INTERRUPTIONS*/////
 
 #pragma code high_vector=0x08
@@ -71,12 +87,51 @@ void low_interrupt(void)
 #pragma interrupt high_isr
 void high_isr(void)
 {
-    if(INTCONbits.TMR0IE && INTCONbits.TMR0IF)
+    if(PIE1bits.RCIE & PIR1bits.RCIF)
     {
-        led = led^1;
-        INTCONbits.TMR0IF = 0;
-    }
 
+        // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
+
+        incoming = ReadUSART();
+
+        if(incoming == 0xFD && Rstate == attenteFD)
+        {
+            Rstate = attenteSize;
+        }
+        else if(Rstate == attenteSize)
+        {
+            newMessage.len = (incoming & 0xF0) >> 4; //TESTER 0 ET LEN
+            ((char*)&newMessage.id)[1] = incoming & 0b00000111;
+            Rstate = attenteIdL;
+        }
+        else if(Rstate == attenteIdL)
+        {
+            *(char*)&newMessage.id = incoming ;
+            Rstate = collecteData;
+            rescp = 0;
+        }
+        else if(Rstate == collecteData)
+        {
+            newMessage.data[rescp] = incoming ;
+            rescp ++;
+            if(rescp >= newMessage.len)
+            {
+                Rstate = verifBF ;
+            }
+        }
+        else if(Rstate == verifBF)
+        {
+            if(incoming == 0xBF)
+            {
+                CANSendMessage(newMessage.id,newMessage.data,
+                        newMessage.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+                led = led^1;
+            }
+            Rstate=attenteFD;
+        }
+
+        PIR1bits.RCIF = 0;
+    }
 }
 
 #pragma interrupt low_isr
@@ -93,16 +148,14 @@ void main (void)
     ADCON1 = 0x0F ;
     ADCON0 = 0b00000000;
     WDTCON = 0 ;
-    on = 0 ; /*Hold off. */
 
     /* Configurations. */
     TRISA   = 0b11111100 ;
     TRISB   = 0b01111111 ;
     TRISC   = 0b11111111 ;
-
-
+    on = 0;
     /*Configuration du port série*/
-    OpenUSART( USART_TX_INT_OFF & USART_RX_INT_OFF
+    OpenUSART( USART_TX_INT_OFF & USART_RX_INT_ON
                 & USART_ASYNCH_MODE & USART_EIGHT_BIT
                 & USART_CONT_RX & USART_BRGH_HIGH, 10); //115200, 1,2% err...
 
@@ -110,6 +163,7 @@ void main (void)
     CANInitialize(1,5,7,6,2,CAN_CONFIG_VALID_STD_MSG);
     Delay10KTCYx(200);
 
+    /*
     // Interruptions Buffer1
     IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
     PIE3bits.RXB1IE=1;//autorise int sur buff1
@@ -119,24 +173,25 @@ void main (void)
     IPR3bits.RXB0IP=1;// : priorité haute par defaut du buff 1
     PIE3bits.RXB0IE=1;//autorise int sur buff1
     PIR3bits.RXB0IF=0;//mise a 0 du flag
-
+*/
 
     // Configuration des masques et filtres
     // Set CAN module into configuration mode
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Buffer 1 Mask value
-    CANSetMask(CAN_MASK_B1, 0b1111,CAN_CONFIG_STD_MSG);
+    CANSetMask(CAN_MASK_B1, 0b0,CAN_CONFIG_STD_MSG);
     // Set Buffer 2 Mask value
-    CANSetMask(CAN_MASK_B2, 0b1111,CAN_CONFIG_STD_MSG );
+    CANSetMask(CAN_MASK_B2, 0b0,CAN_CONFIG_STD_MSG );
     // Set Buffer 1 Filter values
-    CANSetFilter(CAN_FILTER_B1_F1,0b0011,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B1_F1,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F1,0b1100,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F1,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B2_F3,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B2_F4,0b0000,CAN_CONFIG_STD_MSG );
     // Set CAN module into Normal mode
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
+
 
     /* Signal de démarrage du programme. */
     led = 0;
@@ -145,42 +200,30 @@ void main (void)
         led=led^1;
         DelayMS(50);
     }
+    led = 0;
 
-    INTCONbits.GIE = 0; /* Autorise interruptions. */
-
-    DelayMS(1000);
-
+    on = 1;
     led = 1;
-    on = 1; /* Démarre tous les autres pics*/
+    
     DelayMS(2000); // On attend qu'ils démarrent
+    
+    
+    INTCONbits.GIE = 1; /* Autorise interruptions. */
+    INTCONbits.PEIE = 1;
 
     /* Boucle principale. */
      while(1)
     {
 
-         /*Programme de test pour flooder le bus.*/
-         DelayMS(500);
-         while(!CANIsTxReady());
-         lengh = 2;
-         CANSendMessage(0b00000000001,message1,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-         led = led^1;
-         DelayMS(500);
-         while(!CANIsTxReady());
-         lengh = 4;
-         CANSendMessage(0b00000000010,message2,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-         led = led^1;
-         DelayMS(500);
-         while(!CANIsTxReady());
-         lengh = 5;
-         CANSendMessage(0b00000000100,message3,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-         led = led^1;
-         DelayMS(500);
-         while(!CANIsTxReady());
-         lengh = 5;
-         CANSendMessage(0xAA,messagetest,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-         led = led^1;
-         
-     }
+       if(CANIsRxReady())
+       {
+        led = led^1;
+        CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
+        CANtoUSART(&message);
+       }
+
+
+    }
 }
 
 ///// Définition des fonctions du programme. /////
@@ -194,6 +237,28 @@ void DelayMS(int delay)
         Delay1KTCYx(5);
     }
 }
+
+void CANtoUSART(CANmsg * msg)
+{
+    char conv;
+    char cmsg;
+   // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
+   while (BusyUSART());
+   WriteUSART(0xFD);
+   while (BusyUSART());
+   conv = msg->id;
+   WriteUSART(msg->len << 4 | msg->id >> 8);
+   while (BusyUSART());
+   WriteUSART(conv);
+   for(cmsg = 0; cmsg < msg->len && cmsg < 8; cmsg++) {
+                while (BusyUSART());
+                WriteUSART(msg->data[cmsg]);
+            }
+   while (BusyUSART());
+   WriteUSART(0xBF);
+
+        }
+
 
 
 

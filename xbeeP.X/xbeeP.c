@@ -45,7 +45,7 @@
 #define collecteData 3
 #define verifBF 4
 
-//a mettre ds .h du can
+//a mettre ds .h du can ?
 typedef struct{
     long id;
     char len;
@@ -95,8 +95,7 @@ void high_isr(void)
 
         if(incoming == 0xFD && Rstate == attenteFD)
         {
-            Rstate = attenteSize;
-            led = led^1;            
+            Rstate = attenteSize;       
         }
         else if(Rstate == attenteSize)
         {
@@ -125,6 +124,7 @@ void high_isr(void)
             {
                 CANSendMessage(newMessage.id,newMessage.data,
                         newMessage.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+                led = led^1;
             }
             Rstate=attenteFD;
         }
@@ -178,11 +178,11 @@ void main (void)
     // Set CAN module into configuration mode
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Buffer 1 Mask value
-    CANSetMask(CAN_MASK_B1, 0b1111,CAN_CONFIG_STD_MSG);
+    CANSetMask(CAN_MASK_B1, 0b0,CAN_CONFIG_STD_MSG);
     // Set Buffer 2 Mask value
     CANSetMask(CAN_MASK_B2, 0b0,CAN_CONFIG_STD_MSG );
     // Set Buffer 1 Filter values
-    CANSetFilter(CAN_FILTER_B1_F1,0b0011,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B1_F1,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B2_F1,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
@@ -204,7 +204,7 @@ void main (void)
     INTCONbits.GIE = 1; /* Autorise interruptions. */
     INTCONbits.PEIE = 1;
 
-    printf("Debut du programme !\n");
+    printf("Reset Espion !\n");
 
     /* Boucle principale. */
      while(1)
@@ -212,6 +212,7 @@ void main (void)
 
        if(CANIsRxReady())
        {
+           led = led^1;
         CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
         CANtoUSART(&message); 
        }
@@ -235,14 +236,16 @@ void DelayMS(int delay)
 void CANtoUSART(CANmsg * msg)
 {
     char cmsg;
+    char conv;
 
    // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
    while (BusyUSART());
    WriteUSART(0xFD);
    while (BusyUSART());
+   conv = msg->id;
    WriteUSART(msg->len << 4 | msg->id >> 8);
    while (BusyUSART());
-   WriteUSART(msg->id);
+   WriteUSART(conv);
    for(cmsg = 0; cmsg < msg->len && cmsg < 8; cmsg++) {
                 while (BusyUSART());
                 WriteUSART(msg->data[cmsg]);
