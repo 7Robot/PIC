@@ -45,6 +45,7 @@
  *                              (Rev 1.1)
  *
  *********************************************************************/
+
 #ifndef CAN18XX8_H          // To avoid duplicate inclusion
 #define CAN18XX8_H
 
@@ -775,6 +776,13 @@ BOOL CANReceiveMessage(unsigned long* id,
 #define CANIsTxReady()          (!TXB0CON_TXREQ || \
                                  !TXB1CON_TXREQ || \
                                  !TXB2CON_TXREQ )
+typedef struct{
+    long id;
+    char len;
+    char data[8];
+    enum CAN_RX_MSG_FLAGS flags;
+}CANmsg;
+
 
 #endif      // CAN18XX8_H
 

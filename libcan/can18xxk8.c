@@ -55,6 +55,8 @@
 #if defined(MCHP_C18)
     #include <p18f25k80.h>    // p18cxxx.h must have current processor
                             // defined.
+
+
 #endif
 
 #if defined(HITECH_C18)
@@ -761,4 +763,5 @@ BOOL CANReceiveMessage(unsigned long *id,
 
     return TRUE;
 }
+
 

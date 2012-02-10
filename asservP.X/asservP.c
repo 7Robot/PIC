@@ -21,6 +21,7 @@
 #include <timers.h>
 #include <pwm.h>
 #include <math.h>
+#include "../libcan/can18xxk8.h"
 
 /////*CONFIGURATION*/////
 #pragma config RETEN = OFF
@@ -39,6 +40,7 @@
 #pragma config MCLRE = ON
 #pragma config STVREN = ON
 #pragma config BBSIZ = BB2K
+
 
 
 /////*Prototypes*/////
@@ -81,6 +83,8 @@ void resetTicks(void);
 #define Kr 1 // Conversion ticks-mm
 
 
+
+
 /////*VARIABLES GLOBALES*/////
 unsigned int i=0; /* Variable à usage général... */
 
@@ -99,6 +103,9 @@ int dErreur=0, gErreur=0, gIErreur=0, dIErreur=0; /* Termes d'erreurs P et I*/
 long r = 0; /* Position rectiligne ou angulaire. */
 long Rconsigne=0, Eposition=0; /*Consigne et erreur de position (anglulaire ou rectiligne)*/
 char mode=0; /* Mode de fonctionnement 0:off, 1:ligne, -1:rotation */
+
+/*Variables CAN*/
+CANmsg message;
 
 
 /////*Interruptions*/////
@@ -245,6 +252,18 @@ void low_isr(void)
             }
         }
     }
+    if( PIE5bits.RXB0IE && PIR5bits.RXB0IF)
+    {
+
+       while(CANIsRxReady()){
+        CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
+        }
+
+        led = led^1;
+        PIR5bits.RXB1IF=0;
+        PIR5bits.ERRIF=0;
+    }
+    
 }
 
 
@@ -281,6 +300,40 @@ void main (void)
     OpenTimer0( TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_4 );
     INTCON2bits.TMR0IP = 0 ; /*Basse priorité pour ne pas rater de ticks */
 
+    /*Configuration du CAN*/
+    CANInitialize(1,16,7,6,2,CAN_CONFIG_VALID_STD_MSG);
+    Delay10KTCYx(200);
+
+    
+  /*  // Interruptions Buffer1
+    IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
+    PIE3bits.RXB1IE=1;//autorise int sur buff1
+    PIR3bits.RXB1IF=0;//mise a 0 du flag*/
+
+    // Interruption Buffer 0
+    IPR5bits.RXB0IP=0;// : priorité basse du buff 0
+    PIE5bits.RXB0IE=1;//autorise int sur buff0
+    PIR5bits.RXB0IF=0;//mise a 0 du flag
+
+
+    // Configuration des masques et filtres
+    // Set CAN module into configuration mode
+    CANSetOperationMode(CAN_OP_MODE_CONFIG);
+    // Set Buffer 1 Mask value
+    CANSetMask(CAN_MASK_B1, 0b0,CAN_CONFIG_STD_MSG);
+    // Set Buffer 2 Mask value
+    CANSetMask(CAN_MASK_B2, 0xFFFFFF ,CAN_CONFIG_STD_MSG );
+    // Set Buffer 1 Filter values
+    CANSetFilter(CAN_FILTER_B1_F1,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F1,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F3,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F4,0b0000,CAN_CONFIG_STD_MSG );
+    // Set CAN module into Normal mode
+    CANSetOperationMode(CAN_OP_MODE_NORMAL);
+
+    
     /* Signal de démarrage du programme. */
     led = 0;
     for(i=0;i<20;i++)
@@ -298,6 +351,7 @@ void main (void)
     ///PROGRAMME DE TEST
     // sera vide en pratique car les consignes viendront du CAN
 
+    DelayMS(2000);
     Vconsigne(-10,-10);
     DelayMS(1000);
     Vconsigne(0,0);
@@ -326,8 +380,17 @@ void main (void)
     {
         DelayMS(10);
     }
-    
+
     while(1);
+
+    /*while(1)
+    {
+    if(CANIsRxReady())
+       {
+        led = led^1;
+        CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
+       }
+    }*/
     
 }
 

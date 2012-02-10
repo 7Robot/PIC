@@ -4,6 +4,7 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
+      <itemPath>../libcan/can18xxk8.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LibraryFiles"
                    displayName="Library Files"
@@ -21,6 +22,7 @@
                    displayName="Source Files"
                    projectFiles="true">
       <itemPath>/media/Données/Documents/7robot/PIC/asservP.X/asservP.c</itemPath>
+      <itemPath>../libcan/can18xxk8.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -105,8 +107,8 @@
         <property key="programoptions.preserveprogramrange.start" value="0x0"/>
         <property key="voltagevalue" value="5.0"/>
         <property key="programoptions.preserveprogramrange" value="false"/>
-        <property key="programoptions.eraseb4program" value="true"/>
         <property key="memories.programmemory.start" value="0x0"/>
+        <property key="programoptions.eraseb4program" value="true"/>
         <property key="memories.programmemory.end" value="0x7fff"/>
         <property key="poweroptions.powerenable" value="false"/>
       </PICkit3PlatformTool>
