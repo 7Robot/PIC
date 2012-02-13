@@ -45,30 +45,27 @@
 #define collecteData 3
 #define verifBF 4
 
-//a mettre ds .h du can ?
-typedef struct{
-    long id;
-    char len;
-    char data[8];
-    enum CAN_RX_MSG_FLAGS flags;
-}CANmsg;
-
 
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
 void DelayMS(int delay);
-void CANtoUSART(CANmsg * msg);
 
 /////*VARIABLES GLOBALES*/////
 int i=0;
-CANmsg message;
-CANmsg newMessage;
-char x=0;
-char rescp = 0;
-char Rstate =0;
-char incoming=0;
-char tmp=0;
+
+
+char rescp = 0; /*Compteur de réception USART. */
+char Rstate =0; /*Etat de réception*/
+char incoming=0; /*Byte entrant */
+
+
+/*Buffers de réception.*/
+CANmsg INbuffer[8];
+char INcount=0;
+CANmsg OUTbuffer[8];
+char OUTcount=0;
+
 /////*INTERRUPTIONS*/////
 
 #pragma code high_vector=0x08
@@ -86,9 +83,9 @@ void low_interrupt(void)
 #pragma interrupt high_isr
 void high_isr(void)
 {
-    if(PIE1bits.RCIE & PIR1bits.RCIF)
+    led = led^1;
+    if(PIE1bits.RCIE && PIR1bits.RCIF)
     {
-
         // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
         
         incoming = ReadUSART();
@@ -99,21 +96,21 @@ void high_isr(void)
         }
         else if(Rstate == attenteSize)
         {
-            newMessage.len = (incoming & 0xF0) >> 4; //TESTER 0 ET LEN
-            ((char*)&newMessage.id)[1] = incoming & 0b00000111;
+            INbuffer[INcount].len = (incoming & 0xF0) >> 4; //TESTER 0 ET LEN
+            ((char*)&INbuffer[INcount].id)[1] = incoming & 0b00000111;
             Rstate = attenteIdL;
         }
         else if(Rstate == attenteIdL)
         {
-            *(char*)&newMessage.id = incoming ;
+            *(char*)&INbuffer[INcount].id = incoming ;
             Rstate = collecteData;
             rescp = 0;
         }
         else if(Rstate == collecteData)
         {
-            newMessage.data[rescp] = incoming ;
+            INbuffer[INcount].data[rescp] = incoming ;
             rescp ++;
-            if(rescp >= newMessage.len)
+            if(rescp >=INbuffer[INcount].len)
             {
                 Rstate = verifBF ;
             }
@@ -122,20 +119,35 @@ void high_isr(void)
         {
             if(incoming == 0xBF)
             {
-                CANSendMessage(newMessage.id,newMessage.data,
-                        newMessage.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-                led = led^1;
+                INcount++;               
             }
             Rstate=attenteFD;
         }
 
         PIR1bits.RCIF = 0;
     }
+
+        if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
+    {        
+        while(CANIsRxReady())
+        {
+            CANReceiveMessage(&OUTbuffer[OUTcount].id,OUTbuffer[OUTcount].data,
+                          &OUTbuffer[OUTcount].len,&OUTbuffer[OUTcount].flags);
+        }
+        
+        OUTcount++;        
+        PIR3bits.RXB0IF=0;
+        PIR3bits.RXB1IF=0;
+        PIR3bits.ERRIF=0;
+    }
+
+
 }
 
 #pragma interrupt low_isr
 void low_isr(void)
 {
+
 
 }
 
@@ -161,19 +173,17 @@ void main (void)
     /*Configuration du CAN*/
     CANInitialize(1,5,7,6,2,CAN_CONFIG_VALID_STD_MSG);
     Delay10KTCYx(200);
-
-    /*
+    
     // Interruptions Buffer1
-    IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
+/*    IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
     PIE3bits.RXB1IE=1;//autorise int sur buff1
-    PIR3bits.RXB1IF=0;//mise a 0 du flag
+    PIR3bits.RXB1IF=0;//mise a 0 du flag*/
 
     // Interruption Buffer 0
-    IPR3bits.RXB0IP=1;// : priorité haute par defaut du buff 1
-    PIE3bits.RXB0IE=1;//autorise int sur buff1
+   // IPR3bits.RXB0IP=1;// : priorité haute par defaut du buff 0
+    PIE3bits.RXB0IE=1;//autorise int sur buff0
     PIR3bits.RXB0IF=0;//mise a 0 du flag
-*/
-
+    
     // Configuration des masques et filtres
     // Set CAN module into configuration mode
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
@@ -209,14 +219,20 @@ void main (void)
     /* Boucle principale. */
      while(1)
     {
+         /**/
+         if(INcount > 0)
+         {
+              CANSendMessage(INbuffer[INcount].id,INbuffer[INcount].data,
+                        INbuffer[INcount].len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+              INcount--;
+         }
 
-       if(CANIsRxReady())
-       {
-           led = led^1;
-        CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
-        CANtoUSART(&message); 
-       }
-                  
+         /* On envoie 1 message du buffer USART*/
+         if(OUTcount > 0)
+         {
+             CANtoUSART(&OUTbuffer[OUTcount]);
+             OUTcount--;
+         }                
 
     }
 }
@@ -233,27 +249,7 @@ void DelayMS(int delay)
     }
 }
 
-void CANtoUSART(CANmsg * msg)
-{
-    char cmsg;
-    char conv;
 
-   // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
-   while (BusyUSART());
-   WriteUSART(0xFD);
-   while (BusyUSART());
-   conv = msg->id;
-   WriteUSART(msg->len << 4 | msg->id >> 8);
-   while (BusyUSART());
-   WriteUSART(conv);
-   for(cmsg = 0; cmsg < msg->len && cmsg < 8; cmsg++) {
-                while (BusyUSART());
-                WriteUSART(msg->data[cmsg]);
-            }
-   while (BusyUSART());
-   WriteUSART(0xBF);
-
-        }
 
 
 

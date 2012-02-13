@@ -776,5 +776,19 @@ BOOL CANReceiveMessage(unsigned long* id,
                                  !TXB1CON_TXREQ || \
                                  !TXB2CON_TXREQ )
 
+
+
+
+//Structure message
+typedef struct{
+    long id;
+    char len;
+    char data[8];
+    enum CAN_RX_MSG_FLAGS flags;
+}CANmsg;
+
+void CANtoUSART(CANmsg * msg);
+
+
 #endif      // CAN18XX8_H
 

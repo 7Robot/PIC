@@ -761,3 +761,26 @@ BOOL CANReceiveMessage(unsigned long *id,
     return TRUE;
 }
 
+
+
+void CANtoUSART(CANmsg * msg)
+{
+    char cmsg;
+    char conv;
+
+   // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
+   while (BusyUSART());
+   WriteUSART(0xFD);
+   while (BusyUSART());
+   conv = msg->id;
+   WriteUSART(msg->len << 4 | msg->id >> 8);
+   while (BusyUSART());
+   WriteUSART(conv);
+   for(cmsg = 0; cmsg < msg->len && cmsg < 8; cmsg++) {
+                while (BusyUSART());
+                WriteUSART(msg->data[cmsg]);
+            }
+   while (BusyUSART());
+   WriteUSART(0xBF);
+
+        }
