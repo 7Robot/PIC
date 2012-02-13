@@ -175,7 +175,7 @@ void low_isr(void)
      /*L'interruption TMR0 gère la fréquence de calcul des asservs. Elle soit être assez
      rapide pour assurer de ma réactivité, mais pas trop longue pour collecter assez de ticks
      entre deux calculs. La fréquence est fixée à environ 30Hz.*/
-
+        
         /* Calcul vitesse*/
         gVitesse = gTicks - gTicksp;
         dVitesse = dTicks - dTicksp;
@@ -195,7 +195,7 @@ void low_isr(void)
 
         
         /* Calcul profil droit. */
-        if(mode == 1)
+       if(mode == 1)
         {
             r = Kr*(gTicks+dTicks)/2;
             Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
@@ -213,7 +213,7 @@ void low_isr(void)
                 //position=0;
                 //r=0;
                 //Eposition=0;
-                led = 1;
+                
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
@@ -251,7 +251,10 @@ void low_isr(void)
 
             }
         }
+
+        INTCONbits.TMR0IF = 0;
     }
+    
     if( PIE5bits.RXB0IE && PIR5bits.RXB0IF)
     {
 
@@ -259,8 +262,8 @@ void low_isr(void)
         CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
         }
 
-        led = led^1;
-        PIR5bits.RXB1IF=0;
+       led = led^1;
+        PIR5bits.RXB0IF=0;
         PIR5bits.ERRIF=0;
     }
     
@@ -305,10 +308,10 @@ void main (void)
     Delay10KTCYx(200);
 
     
-  /*  // Interruptions Buffer1
-    IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
-    PIE3bits.RXB1IE=1;//autorise int sur buff1
-    PIR3bits.RXB1IF=0;//mise a 0 du flag*/
+    // Interruptions Buffer1
+    IPR5bits.RXB1IP=0;// : priorité haute par defaut du buff 1
+    PIE5bits.RXB1IE=0;//autorise pas  int sur buff1
+    PIR5bits.RXB1IF=0;//mise a 0 du flag*/
 
     // Interruption Buffer 0
     IPR5bits.RXB0IP=0;// : priorité basse du buff 0
@@ -352,6 +355,7 @@ void main (void)
     // sera vide en pratique car les consignes viendront du CAN
 
     DelayMS(2000);
+    mode = 0;
     Vconsigne(-10,-10);
     DelayMS(1000);
     Vconsigne(0,0);
@@ -381,16 +385,12 @@ void main (void)
         DelayMS(10);
     }
 
-    while(1);
+    while(1){
 
-    /*while(1)
-    {
-    if(CANIsRxReady())
-       {
-        led = led^1;
-        CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
-       }
-    }*/
+   
+    }
+
+    
     
 }
 
