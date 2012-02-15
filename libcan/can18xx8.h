@@ -788,6 +788,11 @@ typedef struct{
 }CANmsg;
 
 void CANtoUSART(CANmsg * msg);
+void DelayMS(int delay);
+CANmsg * TrouverPlace(CANmsg * pbuffer);
+void ResetBuffer(CANmsg * pbuffer);
+char PlacesRestantes(CANmsg * pbuffer);
+CANmsg * TrouverMessage(CANmsg * pbuffer);
 
 
 #endif      // CAN18XX8_H

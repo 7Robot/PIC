@@ -49,7 +49,7 @@
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
-void DelayMS(int delay);
+
 
 /////*VARIABLES GLOBALES*/////
 int i=0;
@@ -60,11 +60,19 @@ char Rstate =0; /*Etat de réception*/
 char incoming=0; /*Byte entrant */
 
 
+
 /*Buffers de réception.*/
-CANmsg INbuffer[8];
-char INcount=0;
-CANmsg OUTbuffer[8];
-char OUTcount=0;
+CANmsg INbuffer[4];
+CANmsg OUTbuffer[4];
+
+CANmsg imessage;
+CANmsg * pimessage;
+
+CANmsg umessage;
+CANmsg * pumessage;
+
+CANmsg message;
+CANmsg * pmessage;
 
 /////*INTERRUPTIONS*/////
 
@@ -83,34 +91,32 @@ void low_interrupt(void)
 #pragma interrupt high_isr
 void high_isr(void)
 {
-    led = led^1;
+    
     if(PIE1bits.RCIE && PIR1bits.RCIF)
     {
-        // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
-        
+        // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]        
         incoming = ReadUSART();
-
         if(incoming == 0xFD && Rstate == attenteFD)
         {
             Rstate = attenteSize;       
         }
         else if(Rstate == attenteSize)
         {
-            INbuffer[INcount].len = (incoming & 0xF0) >> 4; //TESTER 0 ET LEN
-            ((char*)&INbuffer[INcount].id)[1] = incoming & 0b00000111;
+            umessage.len = (incoming & 0xF0) >> 4; //TESTER 0 ET LEN
+            ((char*)&umessage.id)[1] = incoming & 0b00000111;
             Rstate = attenteIdL;
         }
         else if(Rstate == attenteIdL)
         {
-            *(char*)&INbuffer[INcount].id = incoming ;
+            *(char*)&umessage.id = incoming ;
             Rstate = collecteData;
             rescp = 0;
         }
         else if(Rstate == collecteData)
         {
-            INbuffer[INcount].data[rescp] = incoming ;
+            umessage.data[rescp] = incoming ;
             rescp ++;
-            if(rescp >=INbuffer[INcount].len)
+            if(rescp >=umessage.len)
             {
                 Rstate = verifBF ;
             }
@@ -118,8 +124,11 @@ void high_isr(void)
         else if(Rstate == verifBF)
         {
             if(incoming == 0xBF)
-            {
-                INcount++;               
+            {             
+                pumessage = TrouverPlace(INbuffer);
+                *pumessage = umessage;
+                if(PlacesRestantes(INbuffer)==0)
+                    printf("INbFULL!\n");               
             }
             Rstate=attenteFD;
         }
@@ -128,14 +137,39 @@ void high_isr(void)
     }
 
         if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
-    {        
+    {
+            
+        /*On stocke la valeur. */
         while(CANIsRxReady())
         {
-            CANReceiveMessage(&OUTbuffer[OUTcount].id,OUTbuffer[OUTcount].data,
-                          &OUTbuffer[OUTcount].len,&OUTbuffer[OUTcount].flags);
+            CANReceiveMessage(&imessage.id,imessage.data,
+                          &imessage.len,&imessage.flags);
+        }
+
+        /*On cherche une place dans la buffer... et on y place */
+        pimessage = TrouverPlace(OUTbuffer);
+        *pimessage = imessage;
+
+        if(PlacesRestantes(OUTbuffer)==0)
+            printf("OUTbFULL!\n");
+    
+        PIR3bits.RXB0IF=0;
+        PIR3bits.RXB1IF=0;
+        PIR3bits.ERRIF=0;
+       
+    }
+
+    if(PIE3bits.ERRIE && PIR3bits.ERRIF)
+    {
+        /*On stocke la valeur. */
+        while(CANIsRxReady())
+        {
+            CANReceiveMessage(&imessage.id,imessage.data,
+                          &imessage.len,&imessage.flags);
         }
         
-        OUTcount++;        
+
+        //On stocke le messgae mais on n'incremente pas le buffer
         PIR3bits.RXB0IF=0;
         PIR3bits.RXB1IF=0;
         PIR3bits.ERRIF=0;
@@ -180,9 +214,11 @@ void main (void)
     PIR3bits.RXB1IF=0;//mise a 0 du flag*/
 
     // Interruption Buffer 0
-   // IPR3bits.RXB0IP=1;// : priorité haute par defaut du buff 0
+    IPR3bits.RXB0IP=1;// : priorité haute par defaut du buff 0
     PIE3bits.RXB0IE=1;//autorise int sur buff0
     PIR3bits.RXB0IF=0;//mise a 0 du flag
+    PIR3bits.ERRIF=0;
+    PIE3bits.ERRIE =1;
     
     // Configuration des masques et filtres
     // Set CAN module into configuration mode
@@ -211,43 +247,47 @@ void main (void)
     }
     led = 0;
 
+    ResetBuffer(OUTbuffer);
+    ResetBuffer(INbuffer);
+
+    printf("Reset Espion !\n");
+
+
     INTCONbits.GIE = 1; /* Autorise interruptions. */
     INTCONbits.PEIE = 1;
 
-    printf("Reset Espion !\n");
 
     /* Boucle principale. */
      while(1)
     {
-         /**/
-         if(INcount > 0)
+         /**/         
+         if(PlacesRestantes(INbuffer) < 4)
          {
-              CANSendMessage(INbuffer[INcount].id,INbuffer[INcount].data,
-                        INbuffer[INcount].len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-              INcount--;
+             pmessage = TrouverMessage(INbuffer);
+             message = *pmessage;
+             led = led^1;
+              while(CANIsTxReady())
+              {
+                CANSendMessage(message.id,message.data,
+                        message.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+              }
+             pmessage->len = 0;
          }
 
          /* On envoie 1 message du buffer USART*/
-         if(OUTcount > 0)
+         if(PlacesRestantes(OUTbuffer) < 4)
          {
-             CANtoUSART(&OUTbuffer[OUTcount]);
-             OUTcount--;
-         }                
-
+             pmessage = TrouverMessage(OUTbuffer);
+             led = led^1;
+             CANtoUSART(pmessage);
+             pmessage->len = 0;            
+         }
     }
 }
 
 ///// Définition des fonctions du programme. /////
-void DelayMS(int delay)
-{
-    /*Attente en ms, sur cette carte c'est utile, et vu que le Quart est soudé,
-     il y a peu de raisons pour que ça change...*/
-    int cp = 0;
-    for(cp=0; cp<delay; cp++)
-    {
-        Delay1KTCYx(5);
-    }
-}
+
+
 
 
 

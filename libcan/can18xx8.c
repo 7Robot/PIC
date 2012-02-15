@@ -50,6 +50,8 @@
  *
  ********************************************************************/
 #include "../libcan/can18xx8.h"
+#include <usart.h>
+#include <stdio.h>
 
 
 #if defined(MCHP_C18)
@@ -784,3 +786,76 @@ void CANtoUSART(CANmsg * msg)
    WriteUSART(0xBF);
 
         }
+
+void DelayMS(int delay)
+{
+    /*Attente en ms, sur cette carte c'est utile, et vu que le Quart est soudé,
+     il y a peu de raisons pour que ça change...*/
+    int cp = 0;
+    for(cp=0; cp<delay; cp++)
+    {
+        Delay1KTCYx(5);
+    }
+}
+
+CANmsg * TrouverPlace(CANmsg * pbuffer)
+{
+    CANmsg * p = pbuffer;
+    char k=1;
+
+    for(k=1;k<=4;k++)
+    {
+        if(p->len == 0)
+        {
+            return p;
+        }
+        p++;
+    }
+    return NULL;
+}
+
+CANmsg * TrouverMessage(CANmsg * pbuffer)
+{
+    CANmsg * p = pbuffer;
+    char k=1;
+
+    for(k=1;k<=4;k++)
+    {
+        if(p->len != 0)
+        {
+            return p;
+        }
+        p++;
+    }
+    return NULL;
+}
+
+char PlacesRestantes(CANmsg * pbuffer)
+{
+    CANmsg * p = pbuffer;
+    char k=1;
+    char cpt=0;
+
+    for(k=1;k<=4;k++)
+    {
+        if(p->len == 0)
+        {
+            cpt++;
+        }
+        p++;
+    }
+    return cpt;
+}
+
+void ResetBuffer(CANmsg * pbuffer)
+{
+    CANmsg * p = pbuffer ;
+    char k=1;
+
+    for(k=1;k<=4;k++)
+    {
+        p->len = 0;
+        p++;
+    }
+    return NULL;
+}

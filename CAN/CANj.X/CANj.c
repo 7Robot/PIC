@@ -7,7 +7,7 @@
 
 
 #define XTAL 10000000
-#define led PORTCbits.RC0
+#define led PORTAbits.RA0
 
 #pragma config OSC = HS
 #pragma config FCMEN = OFF
@@ -110,7 +110,7 @@ void main (void)
 	WDTCON = 0 ;
         
         /* Direction des ports I in, O out*/
-	TRISA = 0b11111111 ;
+	TRISA = 0b11111110 ;
 	TRISB = 0b01111011 ;//canTX en sortie
 	TRISC = 0b11111110;
 	
@@ -126,7 +126,7 @@ void main (void)
 
         //INTCONbits.GIE=1;
 
-        CANInitialize(1,2,6,3,2,CAN_CONFIG_VALID_STD_MSG );//jeje modif
+        CANInitialize(1,5,7,6,2,CAN_CONFIG_VALID_STD_MSG );//jeje modif
         Delay10KTCYx(200);
 
          /*Config interupt CAN- Buffeur 1*/
@@ -149,9 +149,9 @@ void main (void)
         // Set CAN module into configuration mode
         CANSetOperationMode(CAN_OP_MODE_CONFIG);
         // Set Buffer 1 Mask value
-        CANSetMask(CAN_MASK_B1, 0b1111,CAN_CONFIG_STD_MSG);
+        CANSetMask(CAN_MASK_B1, 0b0,CAN_CONFIG_STD_MSG);
         // Set Buffer 2 Mask value
-        CANSetMask(CAN_MASK_B2, 0b1111,CAN_CONFIG_STD_MSG );
+        CANSetMask(CAN_MASK_B2, 0b0,CAN_CONFIG_STD_MSG );
         // Set Buffer 1 Filter values
         CANSetFilter(CAN_FILTER_B1_F1,0b0011,CAN_CONFIG_STD_MSG );
         CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );

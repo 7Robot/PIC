@@ -1,5 +1,5 @@
 /*
-* Programme espion Xbee petit robot
+* Programme PIC ARM petit robot
 * Eurobot 2012
 * Compiler : Microchip C18
 * µC : 18f2680
@@ -46,30 +46,35 @@
 #define collecteData 3
 #define verifBF 4
 
-//a mettre ds .h du can ?
-typedef struct{
-    long id;
-    char len;
-    char data[8];
-    enum CAN_RX_MSG_FLAGS flags;
-}CANmsg;
-
 
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
-void DelayMS(int delay);
-void CANtoUSART(CANmsg * msg);
+
 
 /////*VARIABLES GLOBALES*/////
 int i=0;
+
+
+char rescp = 0; /*Compteur de réception USART. */
+char Rstate =0; /*Etat de réception*/
+char incoming=0; /*Byte entrant */
+
+
+
+/*Buffers de réception.*/
+CANmsg INbuffer[4];
+CANmsg OUTbuffer[4];
+
+CANmsg imessage;
+CANmsg * pimessage;
+
+CANmsg umessage;
+CANmsg * pumessage;
+
 CANmsg message;
-CANmsg newMessage;
-char x=0;
-char rescp = 0;
-char Rstate =0;
-char incoming=0;
-char tmp=0;
+CANmsg * pmessage;
+
 /////*INTERRUPTIONS*/////
 
 #pragma code high_vector=0x08
@@ -87,34 +92,32 @@ void low_interrupt(void)
 #pragma interrupt high_isr
 void high_isr(void)
 {
-    if(PIE1bits.RCIE & PIR1bits.RCIF)
+
+    if(PIE1bits.RCIE && PIR1bits.RCIF)
     {
-
         // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
-
         incoming = ReadUSART();
-
         if(incoming == 0xFD && Rstate == attenteFD)
         {
             Rstate = attenteSize;
         }
         else if(Rstate == attenteSize)
         {
-            newMessage.len = (incoming & 0xF0) >> 4; //TESTER 0 ET LEN
-            ((char*)&newMessage.id)[1] = incoming & 0b00000111;
+            umessage.len = (incoming & 0xF0) >> 4; //TESTER 0 ET LEN
+            ((char*)&umessage.id)[1] = incoming & 0b00000111;
             Rstate = attenteIdL;
         }
         else if(Rstate == attenteIdL)
         {
-            *(char*)&newMessage.id = incoming ;
+            *(char*)&umessage.id = incoming ;
             Rstate = collecteData;
             rescp = 0;
         }
         else if(Rstate == collecteData)
         {
-            newMessage.data[rescp] = incoming ;
+            umessage.data[rescp] = incoming ;
             rescp ++;
-            if(rescp >= newMessage.len)
+            if(rescp >=umessage.len)
             {
                 Rstate = verifBF ;
             }
@@ -123,20 +126,63 @@ void high_isr(void)
         {
             if(incoming == 0xBF)
             {
-                CANSendMessage(newMessage.id,newMessage.data,
-                        newMessage.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-                led = led^1;
+                pumessage = TrouverPlace(INbuffer);
+                *pumessage = umessage;
+                if(PlacesRestantes(INbuffer)==0)
+                    printf("INbFULL!\n");
             }
             Rstate=attenteFD;
         }
 
         PIR1bits.RCIF = 0;
     }
+
+        if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
+    {
+
+        /*On stocke la valeur. */
+        while(CANIsRxReady())
+        {
+            CANReceiveMessage(&imessage.id,imessage.data,
+                          &imessage.len,&imessage.flags);
+        }
+
+        /*On cherche une place dans la buffer... et on y place */
+        pimessage = TrouverPlace(OUTbuffer);
+        *pimessage = imessage;
+
+        if(PlacesRestantes(OUTbuffer)==0)
+            printf("OUTbFULL!\n");
+
+        PIR3bits.RXB0IF=0;
+        PIR3bits.RXB1IF=0;
+        PIR3bits.ERRIF=0;
+
+    }
+
+    if(PIE3bits.ERRIE && PIR3bits.ERRIF)
+    {
+        /*On stocke la valeur. */
+        while(CANIsRxReady())
+        {
+            CANReceiveMessage(&imessage.id,imessage.data,
+                          &imessage.len,&imessage.flags);
+        }
+
+
+        //On stocke le messgae mais on n'incremente pas le buffer
+        PIR3bits.RXB0IF=0;
+        PIR3bits.RXB1IF=0;
+        PIR3bits.ERRIF=0;
+    }
+
+
 }
 
 #pragma interrupt low_isr
 void low_isr(void)
 {
+
 
 }
 
@@ -163,17 +209,17 @@ void main (void)
     CANInitialize(1,5,7,6,2,CAN_CONFIG_VALID_STD_MSG);
     Delay10KTCYx(200);
 
-    /*
     // Interruptions Buffer1
-    IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
+/*    IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
     PIE3bits.RXB1IE=1;//autorise int sur buff1
-    PIR3bits.RXB1IF=0;//mise a 0 du flag
+    PIR3bits.RXB1IF=0;//mise a 0 du flag*/
 
     // Interruption Buffer 0
-    IPR3bits.RXB0IP=1;// : priorité haute par defaut du buff 1
-    PIE3bits.RXB0IE=1;//autorise int sur buff1
+    IPR3bits.RXB0IP=1;// : priorité haute par defaut du buff 0
+    PIE3bits.RXB0IE=1;//autorise int sur buff0
     PIR3bits.RXB0IF=0;//mise a 0 du flag
-*/
+    PIR3bits.ERRIF=0;
+    PIE3bits.ERRIE =1;
 
     // Configuration des masques et filtres
     // Set CAN module into configuration mode
@@ -202,62 +248,50 @@ void main (void)
     }
     led = 0;
 
+    ResetBuffer(OUTbuffer);
+    ResetBuffer(INbuffer);
+
+    printf("Reset ARM!\n");
     on = 1;
-    led = 1;
-    
-    DelayMS(2000); // On attend qu'ils démarrent
-    
-    
+
     INTCONbits.GIE = 1; /* Autorise interruptions. */
     INTCONbits.PEIE = 1;
+
 
     /* Boucle principale. */
      while(1)
     {
+         /**/
+         if(PlacesRestantes(INbuffer) < 4)
+         {
+             pmessage = TrouverMessage(INbuffer);
+             message = *pmessage;
+             led = led^1;
+              while(CANIsTxReady())
+              {
+                CANSendMessage(message.id,message.data,
+                        message.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+              }
+             pmessage->len = 0;
+         }
 
-       if(CANIsRxReady())
-       {
-        led = led^1;
-        CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
-        CANtoUSART(&message);
-       }
-
-
+         /* On envoie 1 message du buffer USART*/
+         if(PlacesRestantes(OUTbuffer) < 4)
+         {
+             pmessage = TrouverMessage(OUTbuffer);
+             led = led^1;
+             CANtoUSART(pmessage);
+             pmessage->len = 0;
+         }
     }
 }
 
 ///// Définition des fonctions du programme. /////
-void DelayMS(int delay)
-{
-    /*Attente en ms, sur cette carte c'est utile, et vu que le Quart est soudé,
-     il y a peu de raisons pour que ça change...*/
-    int cp = 0;
-    for(cp=0; cp<delay; cp++)
-    {
-        Delay1KTCYx(5);
-    }
-}
 
-void CANtoUSART(CANmsg * msg)
-{
-    char conv;
-    char cmsg;
-   // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]
-   while (BusyUSART());
-   WriteUSART(0xFD);
-   while (BusyUSART());
-   conv = msg->id;
-   WriteUSART(msg->len << 4 | msg->id >> 8);
-   while (BusyUSART());
-   WriteUSART(conv);
-   for(cmsg = 0; cmsg < msg->len && cmsg < 8; cmsg++) {
-                while (BusyUSART());
-                WriteUSART(msg->data[cmsg]);
-            }
-   while (BusyUSART());
-   WriteUSART(0xBF);
 
-        }
+
+
+
 
 
 
