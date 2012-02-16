@@ -267,11 +267,9 @@ void main (void)
              pmessage = TrouverMessage(INbuffer);
              message = *pmessage;
              led = led^1;
-              while(CANIsTxReady())
-              {
-                CANSendMessage(message.id,message.data,
+             CANSendMessage(message.id,message.data,
                         message.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-              }
+             
              pmessage->len = 0;
          }
 

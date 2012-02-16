@@ -94,6 +94,7 @@ void high_isr(void)
     
     if(PIE1bits.RCIE && PIR1bits.RCIF)
     {
+        
         // [ FD ] [ size | 0 | id10..8 ] [ id7..0] [ M1 ] [ M2 ] ? [ M8 ] [ BF ]        
         incoming = ReadUSART();
         if(incoming == 0xFD && Rstate == attenteFD)
@@ -266,11 +267,8 @@ void main (void)
              pmessage = TrouverMessage(INbuffer);
              message = *pmessage;
              led = led^1;
-              while(CANIsTxReady())
-              {
-                CANSendMessage(message.id,message.data,
+             CANSendMessage(message.id,message.data,
                         message.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-              }
              pmessage->len = 0;
          }
 
