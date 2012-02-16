@@ -800,12 +800,13 @@ void DelayMS(int delay)
 
 CANmsg * TrouverPlace(CANmsg * pbuffer)
 {
+    /*On considère qu'une place est libre si len=10*/
     CANmsg * p = pbuffer;
     char k=1;
 
     for(k=1;k<=4;k++)
     {
-        if(p->len == 0)
+        if(p->len == 10)
         {
             return p;
         }
@@ -821,7 +822,7 @@ CANmsg * TrouverMessage(CANmsg * pbuffer)
 
     for(k=1;k<=4;k++)
     {
-        if(p->len != 0)
+        if(p->len != 10)
         {
             return p;
         }
@@ -838,7 +839,7 @@ char PlacesRestantes(CANmsg * pbuffer)
 
     for(k=1;k<=4;k++)
     {
-        if(p->len == 0)
+        if(p->len == 10)
         {
             cpt++;
         }
@@ -854,7 +855,7 @@ void ResetBuffer(CANmsg * pbuffer)
 
     for(k=1;k<=4;k++)
     {
-        p->len = 0;
+        p->len = 10;
         p++;
     }
     return NULL;

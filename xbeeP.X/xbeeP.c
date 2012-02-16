@@ -269,7 +269,7 @@ void main (void)
              led = led^1;
              CANSendMessage(message.id,message.data,
                         message.len,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-             pmessage->len = 0;
+             pmessage->len = 10;
          }
 
          /* On envoie 1 message du buffer USART*/
@@ -278,7 +278,7 @@ void main (void)
              pmessage = TrouverMessage(OUTbuffer);
              led = led^1;
              CANtoUSART(pmessage);
-             pmessage->len = 0;            
+             pmessage->len = 10;
          }
     }
 }
