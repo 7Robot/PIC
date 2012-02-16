@@ -38,6 +38,8 @@
 /////*CONSTANTES*/////
 #define XTAL    20000000
 #define led     PORTAbits.RA4
+#define arriere   PORTCbits.RC2
+#define avant PORTCbits.RC3
 
 
 /////*PROTOTYPES*/////
@@ -53,6 +55,7 @@ char message2[8]="deux";
 char message3[8]="trois";
 char messagetest[8] = "ENSEE";
 char lengh = 0;
+char prevC;
 
 /////*INTERRUPTIONS*/////
 
@@ -73,10 +76,25 @@ void high_isr(void)
 {
     if(INTCONbits.TMR0IE && INTCONbits.TMR0IF)
     {
-        led = led^1;
+        if(PORTC != prevC)
+        {
+            if(!arriere)
+            {
+                led = led^1;
+                CANSendMessage(257,&prevC,1,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+            }
+            else if(!avant)
+            {
+                led = led^1;
+                CANSendMessage(258,&prevC,1,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+            }
+        }
+        prevC = PORTC;
         INTCONbits.TMR0IF = 0;
     }
-
+    
 }
 
 #pragma interrupt low_isr
@@ -95,19 +113,16 @@ void main (void)
     WDTCON = 0 ;
 
     /* Configurations. */
-    TRISA   = 0b11111100 ;
+    TRISA   = 0b11101111 ;
     TRISB   = 0b01111111 ;
     TRISC   = 0b11111111 ;
-
-
-    /*Configuration du port série*/
-    OpenUSART( USART_TX_INT_OFF & USART_RX_INT_OFF
-                & USART_ASYNCH_MODE & USART_EIGHT_BIT
-                & USART_CONT_RX & USART_BRGH_HIGH, 10); //115200, 1,2% err...
 
     /*Configuration du CAN*/
     CANInitialize(1,5,7,6,2,CAN_CONFIG_VALID_STD_MSG);
     Delay10KTCYx(200);
+
+    /*Timer de rafraichissement des BP*/
+    OpenTimer0( TIMER_INT_ON & T0_8BIT & T0_SOURCE_INT & T0_PS_1_256 ); //76Hz
 
    /* // Interruptions Buffer1
     IPR3bits.RXB1IP=1;// : priorité haute par defaut du buff 1
@@ -145,19 +160,18 @@ void main (void)
         DelayMS(50);
     }
 
-    INTCONbits.GIE = 0; /* Autorise interruptions. */
+    led = 0;
+    prevC = PORTC;
 
-    DelayMS(1000);
-
-    led = 1;
-    DelayMS(2000); // On attend qu'ils démarrent
+    INTCONbits.GIE = 1; /* Autorise interruptions. */
+    
 
     /* Boucle principale. */
      while(1)
     {
 
          /*Programme de test pour flooder le bus.*/
-         DelayMS(500);
+         /*DelayMS(500);
          while(!CANIsTxReady());
          lengh = 2;
          CANSendMessage(0b00000000001,message1,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
@@ -176,20 +190,13 @@ void main (void)
          while(!CANIsTxReady());
          lengh = 5;
          CANSendMessage(0xAA,messagetest,lengh,CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
-         led = led^1;
+         led = led^1;*/
+
+    
 
      }
 }
 
 ///// Définition des fonctions du programme. /////
-void DelayMS(int delay)
-{
-    /*Attente en ms, sur cette carte c'est utile, et vu que le Quart est soudé,
-     il y a peu de raisons pour que ça change...*/
-    int cp = 0;
-    for(cp=0; cp<delay; cp++)
-    {
-        Delay1KTCYx(5);
-    }
-}
+
 

@@ -269,23 +269,24 @@ void low_isr(void)
        switch (message.id) {
                     case 1029: //Consigne en vitesse
                         mode = 0;
-                        led = led^1;
+                        led  = led^1;
                         Vconsigne(message.data[0],message.data[1]);
                       break;
 
                     case 1025: //Consigne ligne
-                        led = led^1;
+                        led  = led^1;
                         mode = 1;
                         Rconsigne = 0;
-                        Rconsigne = message.data[1] << 8 | message.data[0];
+                        Rconsigne = (255*message.data[0]) | message.data[1]; /*Poid des bits inversé...*/
+                        /*Pas beau mais permet de gérer le signe...*/
                       break;
 
                     case 1026: //Consigne rotation
-                        led = led^1;
+                        led  = led^1;
                         mode = -1;
                         Rconsigne = 0;
-                        Rconsigne = message.data[1] << 8 | message.data[0];
-
+                        Rconsigne = (255*message.data[0]) | message.data[1]; /*Poid des bits inversé...*/
+                        /*Pas beau mais permet de gérer le signe...*/
                       break;
 
                     case 1030: //Marche-Arrêt
@@ -402,48 +403,8 @@ void main (void)
     INTCONbits.GIEL = 1; /* Autorisation des interruptions de bas niveau. */
 
 
+    while(1);
 
-    ///PROGRAMME DE TEST
-    // sera vide en pratique car les consignes viendront du CAN
-
-    /*DelayMS(2000);
-    mode = 0;
-    Vconsigne(-10,-10);
-    DelayMS(1000);
-    Vconsigne(0,0);
-    resetTicks();
-
-    mode = 1;
-    Rconsigne = 10*TourRoue;
-
-    while(mode)
-    {
-        DelayMS(10);
-    }
-
-    mode = -1;
-    Rconsigne = TourRobot/2;
-
-    while(mode)
-    {
-        DelayMS(10);
-    }
-
-    mode = 1;
-    Rconsigne = 10*TourRoue;
-
-    while(mode)
-    {
-        DelayMS(10);
-    }*/
-
-    while(1){
-
-   
-    }
-
-    
-    
 }
 
 ///// Définition des fonctions du programme. /////
