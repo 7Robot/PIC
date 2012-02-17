@@ -858,5 +858,4 @@ void ResetBuffer(CANmsg * pbuffer)
         p->len = 10;
         p++;
     }
-    return NULL;
 }
