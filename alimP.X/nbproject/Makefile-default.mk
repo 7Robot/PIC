@@ -39,11 +39,11 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/_ext/217066270/alimP.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/_ext/217066270/alimP.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/_ext/217066270/alimP.o ${OBJECTDIR}/_ext/650896648/can18xx8.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/_ext/217066270/alimP.o.d ${OBJECTDIR}/_ext/650896648/can18xx8.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/_ext/217066270/alimP.o
+OBJECTFILES=${OBJECTDIR}/_ext/217066270/alimP.o ${OBJECTDIR}/_ext/650896648/can18xx8.o
 
 
 CFLAGS=
@@ -95,12 +95,24 @@ ${OBJECTDIR}/_ext/217066270/alimP.o: /media/Données/Documents/7robot/PIC/alimP.
 	${MP_CC} $(MP_EXTRA_CC_PRE) -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1 -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/_ext/217066270/alimP.o   /media/Données/Documents/7robot/PIC/alimP.X/alimP.c 
 	@${DEP_GEN} -d ${OBJECTDIR}/_ext/217066270/alimP.o 
 	
+${OBJECTDIR}/_ext/650896648/can18xx8.o: /media/Données/Documents/7robot/PIC/libcan/can18xx8.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/650896648 
+	@${RM} ${OBJECTDIR}/_ext/650896648/can18xx8.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1 -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/_ext/650896648/can18xx8.o   /media/Données/Documents/7robot/PIC/libcan/can18xx8.c 
+	@${DEP_GEN} -d ${OBJECTDIR}/_ext/650896648/can18xx8.o 
+	
 else
 ${OBJECTDIR}/_ext/217066270/alimP.o: /media/Données/Documents/7robot/PIC/alimP.X/alimP.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR}/_ext/217066270 
 	@${RM} ${OBJECTDIR}/_ext/217066270/alimP.o.d 
 	${MP_CC} $(MP_EXTRA_CC_PRE) -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/_ext/217066270/alimP.o   /media/Données/Documents/7robot/PIC/alimP.X/alimP.c 
 	@${DEP_GEN} -d ${OBJECTDIR}/_ext/217066270/alimP.o 
+	
+${OBJECTDIR}/_ext/650896648/can18xx8.o: /media/Données/Documents/7robot/PIC/libcan/can18xx8.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/650896648 
+	@${RM} ${OBJECTDIR}/_ext/650896648/can18xx8.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -p$(MP_PROCESSOR_OPTION)   -I ${MP_CC_DIR}/../h  -fo ${OBJECTDIR}/_ext/650896648/can18xx8.o   /media/Données/Documents/7robot/PIC/libcan/can18xx8.c 
+	@${DEP_GEN} -d ${OBJECTDIR}/_ext/650896648/can18xx8.o 
 	
 endif
 

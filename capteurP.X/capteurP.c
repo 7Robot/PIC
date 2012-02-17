@@ -139,18 +139,19 @@ void main (void)
     // Set CAN module into configuration mode
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Buffer 1 Mask value
-    CANSetMask(CAN_MASK_B1, 0b1111,CAN_CONFIG_STD_MSG);
+    CANSetMask(CAN_MASK_B1, 0b00100000000,CAN_CONFIG_STD_MSG);
     // Set Buffer 2 Mask value
-    CANSetMask(CAN_MASK_B2, 0b1111,CAN_CONFIG_STD_MSG );
+    CANSetMask(CAN_MASK_B2, 0xFFFFFF ,CAN_CONFIG_STD_MSG );
     // Set Buffer 1 Filter values
-    CANSetFilter(CAN_FILTER_B1_F1,0b0011,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B1_F1,0b10000000000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F1,0b1100,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F1,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B2_F3,0b0000,CAN_CONFIG_STD_MSG );
     CANSetFilter(CAN_FILTER_B2_F4,0b0000,CAN_CONFIG_STD_MSG );
     // Set CAN module into Normal mode
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
+
 
     /* Signal de démarrage du programme. */
     led = 0;

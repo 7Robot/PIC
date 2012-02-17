@@ -206,22 +206,12 @@ void low_isr(void)
             Vconsigne(Eposition,Eposition);
 
             if(fabs(r-Rconsigne) < 30)
-            {   
-                //DelayMS(100);
-                //resetTicks();
-                //Rconsigne = 0;
-                //position=0;
-                //r=0;
-                //Eposition=0;
-                
+            {                   
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
                 CANSendMessage(1028,&prevB,1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME ); //Idle, byte quelconque
-
-
-
             }
         }
 
@@ -240,13 +230,6 @@ void low_isr(void)
 
             if(fabs(r-Rconsigne) < 30)
             {
-                //DelayMS(100);
-                //resetTicks();
-                //Rconsigne = 0;
-                //position=0;
-                //r=0;
-                //Eposition=0;
-                led = 1;
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
@@ -268,6 +251,7 @@ void low_isr(void)
 
        switch (message.id) {
                     case 1029: //Consigne en vitesse
+                        //resetTicks();
                         mode = 0;
                         led  = led^1;
                         Vconsigne(message.data[0],message.data[1]);
@@ -275,6 +259,7 @@ void low_isr(void)
 
                     case 1025: //Consigne ligne
                         led  = led^1;
+                        resetTicks();
                         mode = 1;
                         Rconsigne = 0;
                         Rconsigne = (255*message.data[0]) | message.data[1]; /*Poid des bits inversé...*/
@@ -283,6 +268,7 @@ void low_isr(void)
 
                     case 1026: //Consigne rotation
                         led  = led^1;
+                        resetTicks();
                         mode = -1;
                         Rconsigne = 0;
                         Rconsigne = (255*message.data[0]) | message.data[1]; /*Poid des bits inversé...*/
