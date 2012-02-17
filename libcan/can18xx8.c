@@ -52,6 +52,7 @@
 #include "../libcan/can18xx8.h"
 #include <usart.h>
 #include <stdio.h>
+#include <delays.h>
 
 
 #if defined(MCHP_C18)
