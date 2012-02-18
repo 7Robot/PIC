@@ -178,7 +178,7 @@ void main (void)
     WDTCON = 0x00 ;
 
     /* Configurations. */
-    TRISA   = 0x11011111 ;
+    TRISA   = 0b11011111; // TODO par maxime: vérifier (il y avait un 0x1101...)
     TRISB   = 0xFF;
     PORTC   = 0xFF; 
 
