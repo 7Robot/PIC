@@ -162,6 +162,25 @@ void low_isr(void)
                           &message.len,&message.flags);
         }
 
+        switch (message.id) {
+                    case 513: //Renvoyer la position
+                      //CODE
+                      break;
+                    case 514: //Broadcast OFF
+                      //CODE
+                      break;
+                    case 515: //Broadcast ON
+                      //CODE
+                      break;
+                    case 517: //Initialisation ou Recalage
+                      //CODE
+                      break;
+                      
+                    default:
+                      // Rien
+                      break;
+                    }
+
         PIR3bits.RXB0IF=0;
         PIR3bits.RXB1IF=0;
         PIR3bits.ERRIF=0;

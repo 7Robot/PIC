@@ -103,6 +103,7 @@ int dErreur=0, gErreur=0, gIErreur=0, dIErreur=0; /* Termes d'erreurs P et I*/
 long r = 0; /* Position rectiligne ou angulaire. */
 long Rconsigne=0, Eposition=0; /*Consigne et erreur de position (anglulaire ou rectiligne)*/
 char mode=0; /* Mode de fonctionnement 0:off, 1:ligne, -1:rotation */
+char residu=0; /*Erreur résiduelle */
 
 /*Variables CAN*/
 CANmsg message;
@@ -206,11 +207,12 @@ void low_isr(void)
             Vconsigne(Eposition,Eposition);
 
             if(fabs(r-Rconsigne) < 30)
-            {                   
+            {
+                residu=fabs(r-Rconsigne);
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
-                CANSendMessage(1028,&prevB,1,
+                CANSendMessage(1028,&residu,1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME ); //Idle, byte quelconque
             }
         }
@@ -230,10 +232,11 @@ void low_isr(void)
 
             if(fabs(r-Rconsigne) < 30)
             {
+                residu=fabs(r-Rconsigne);
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
-                CANSendMessage(1028,&prevB,1,
+                CANSendMessage(1028,&residu,1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME ); //Idle, byte quelconque
 
             }
