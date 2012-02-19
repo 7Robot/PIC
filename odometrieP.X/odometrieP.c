@@ -153,9 +153,9 @@ void low_isr(void)
     if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
     {
         //Interruption de réception CAN.
-
         /*On stocke la valeur. */
         led  = led^1;
+        
         while(CANIsRxReady())
         {
             CANReceiveMessage(&message.id,message.data,
@@ -166,23 +166,6 @@ void low_isr(void)
         PIR3bits.RXB1IF=0;
         PIR3bits.ERRIF=0;
 
-    }
-
-    if(PIE3bits.ERRIE && PIR3bits.ERRIF)
-    {
-        // Interruptiton erreur CAN
-        led = led^1;
-
-        /*On stocke la valeur. */
-        while(CANIsRxReady())
-        {
-            CANReceiveMessage(&message.id,message.data,
-                          &message.len,&message.flags);
-        }
-        //On stocke le messgae mais on n'incremente pas le buffer
-        PIR3bits.RXB0IF=0;
-        PIR3bits.RXB1IF=0;
-        PIR3bits.ERRIF=0;
     }
 
 }
@@ -220,33 +203,24 @@ void main (void)
     TRISB   = 0xFF;
     PORTC   = 0xFF; 
 
-     // Interruptions Buffer1
-    IPR3bits.RXB1IP=0;//basse
-    PIE3bits.RXB1IE=0;//off
-    PIR3bits.RXB1IF=0;//flag
 
-    // Interruption Buffer 0
-    IPR3bits.RXB0IP=0;  //priorité BASSE
-    PIE3bits.RXB0IE=1;  //autorise int sur buff0
-    PIR3bits.RXB0IF=0;  //mise a 0 du flag
-    PIE3bits.ERRIE=0;   //interruption erreur
-
-    // Configuration des masques et filtres
-    // Set CAN module into configuration mode
+    // Configuration du CAN.
+    CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
+    // Configuration des masques et filtres.
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
-    // Set Buffer 1 Mask value
-    CANSetMask(CAN_MASK_B1, 0b1111,CAN_CONFIG_STD_MSG);
-    // Set Buffer 2 Mask value
-    CANSetMask(CAN_MASK_B2, 0b1111,CAN_CONFIG_STD_MSG );
-    // Set Buffer 1 Filter values
-    CANSetFilter(CAN_FILTER_B1_F1,0b0011,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F1,0b1100,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F3,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F4,0b0000,CAN_CONFIG_STD_MSG );
-    // Set CAN module into Normal mode
+    // Set Buffer 1 Mask value.
+    CANSetMask(CAN_MASK_B1, 0b01000000000, CAN_CONFIG_STD_MSG);
+    // Set Buffer 1 Filter values.
+    CANSetFilter(CAN_FILTER_B1_F1, 0b01000000000, CAN_CONFIG_STD_MSG);
+    CANSetFilter(CAN_FILTER_B1_F2, 0b01000000000, CAN_CONFIG_STD_MSG);
+    // Set CAN module into Normal mode.
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
+    // Interruption Buffer 0.
+    IPR3bits.RXB0IP = 0; // Priorité basse.
+    PIE3bits.RXB0IE = 1; // Activée.
+    PIR3bits.RXB0IF = 0;
+    // Interruptions Buffer 1.
+    PIE3bits.RXB1IE = 0; // Interdite.
 
 
     // Interruptions du PORTB (haute priorité par défaut)
@@ -266,8 +240,12 @@ void main (void)
     }
     led = 0;
 
-    INTCONbits.GIE = 1;
+    //Autorisation des interruptions
+    RCONbits.IPEN = 1;
+    INTCONbits.GIEH = 1;
+    INTCONbits.GIEL = 1;
 
+    
     //calibration();
 
     while(1) {
