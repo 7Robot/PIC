@@ -77,8 +77,9 @@ void resetTicks(void);
 #define Vmax 80         /* Vitesse de plateau des rampes. */
 //#define TicksAcc 3*TourRoue /* Pente des rampes. */
 
-#define Kp 10
+#define Kp 15
 #define Ki 10
+#define Kd 5
 
 #define Kr 1 // Conversion ticks-mm
 
@@ -98,12 +99,15 @@ char prevB = 0;             /*Valeur précédente du PORTB, pour déterminer type d
 /* Variables asserv vitesse PI(D) */
 int gConsigne = 0, dConsigne=0;     /* Consignes de vitesse des moteurs gauche et droit. */
 int dErreur=0, gErreur=0, gIErreur=0, dIErreur=0; /* Termes d'erreurs P et I*/
+int dDErreur=0, dErreurP=0, gDErreur=0, gErreurP=0; /*Termes D*/
+int Emax=0; //erreur maxi pour réglages
 
 /* Variables asserv position P */
 long r = 0; /* Position rectiligne ou angulaire. */
 long Rconsigne=0, Eposition=0; /*Consigne et erreur de position (anglulaire ou rectiligne)*/
 char mode=0; /* Mode de fonctionnement 0:off, 1:ligne, -1:rotation */
 char residu=0; /*Erreur résiduelle */
+int convi=0;
 
 /*Variables CAN*/
 CANmsg message;
@@ -190,9 +194,16 @@ void low_isr(void)
         dIErreur += dErreur;
         gIErreur += gErreur;
 
+        dDErreur = dErreur - dErreurP;
+        gDErreur = gErreur - gErreurP;
+        dErreurP = dErreur;
+        gErreurP = gErreur;
+
+        if(dVitesse > Emax) Emax = dVitesse;
+
         /* Commande des moteurs */
-        GsetDC(Kp*gErreur + Ki*gIErreur);
-        DsetDC(Kp*dErreur + Ki*dIErreur);
+        GsetDC(Kp*gErreur + Ki*gIErreur + Kd*gDErreur );
+        DsetDC(Kp*dErreur + Ki*dIErreur + Kd*gDErreur);
 
         
         /* Calcul profil droit. */
@@ -200,18 +211,20 @@ void low_isr(void)
         {
             r = Kr*(gTicks+dTicks)/2;
             Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
-            Eposition = Eposition/50;
+            Eposition = Eposition/30;
             if(Eposition > Vmax) Eposition = Vmax;
             if(Eposition == 0 && r < 100) Eposition = 1;
             if(Rconsigne < 0) Eposition = -Eposition;
             Vconsigne(Eposition,Eposition);
 
-            if(fabs(r-Rconsigne) < 30)
+
+            if(gConsigne==0 || dConsigne==0 || fabs(r-Rconsigne) < 20)
             {
                 residu=fabs(r-Rconsigne);
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
+                led = led^1;
                 CANSendMessage(1028,&residu,1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME ); //Idle, byte quelconque
             }
@@ -222,7 +235,7 @@ void low_isr(void)
         {
             r = Kr*(gTicks-dTicks)/2;
             Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
-            Eposition = Eposition/50;
+            Eposition = Eposition/30;
             if(Eposition > Vmax) Eposition = Vmax;
 
             if(Eposition == 0 && r < 100) Eposition = 1;
@@ -230,12 +243,13 @@ void low_isr(void)
 
             Vconsigne(Eposition,-Eposition);
 
-            if(fabs(r-Rconsigne) < 30)
+            if(gConsigne==0 || dConsigne==0 || fabs(r-Rconsigne) < 20)
             {
                 residu=fabs(r-Rconsigne);
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
+                led = led^1;
                 CANSendMessage(1028,&residu,1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME ); //Idle, byte quelconque
 
@@ -263,17 +277,22 @@ void low_isr(void)
                     case 1025: //Consigne ligne
                         resetTicks();
                         mode = 1;
-                        Rconsigne = 0;
-                        Rconsigne = (255*message.data[0]) | message.data[1]; /*Poid des bits inversé...*/
-                        /*Pas beau mais permet de gérer le signe...*/
+                        convi = 0;
+                        convi = (unsigned char) message.data[0]; //Poid des bits inversé
+                        convi = convi << 8;
+                        convi |= (unsigned char) message.data[1];
+                        Rconsigne = convi; // Permet de gérer le signe
+                       
                       break;
 
                     case 1026: //Consigne rotation
                         resetTicks();
                         mode = -1;
-                        Rconsigne = 0;
-                        Rconsigne = (255*message.data[0]) | message.data[1]; /*Poid des bits inversé...*/
-                        /*Pas beau mais permet de gérer le signe...*/
+                        convi = 0;
+                        convi = (unsigned char) message.data[0]; //Poid des bits inversé
+                        convi = convi << 8;
+                        convi |= (unsigned char) message.data[1];
+                        Rconsigne = convi; // Permet de gérer le signe
                       break;
 
                     case 1030: //Marche
