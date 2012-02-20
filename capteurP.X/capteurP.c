@@ -17,10 +17,10 @@
 #include <stdlib.h>
 #include <timers.h>
 #include <p18f2680.h>
-#include "../libcan/can18xx8.h"
 #include <usart.h>
 #include <delays.h>
 #include <portb.h>
+#include "../libcan/can18xx8.h"
 
 /////*CONFIGURATION*/////
 #pragma config OSC = HS
@@ -44,20 +44,19 @@
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
-void DelayMS(int delay);
 
 /////*VARIABLES GLOBALES*/////
-int i = 0;
+int i;
 
 // Derniers états des interrupteurs.
-char bas_arriere = 0; // Le capteur n'est pas enfoncé.
-char bas_avant   = 0;
+char bump_back = 0; // Enfoncement du capteur.
+char bum_front = 0;
 
 // Variables des deux sonars.
 char us0_underthres = 0; // Sur ou sous le seuil.
 char us1_underthres = 0;
-char us0_autosend = 0; // Broadcast de la distance.
-char us1_autosend = 0;
+char us0_unmuted = 0; // Broadcast de la distance.
+char us1_unmuted = 0;
 unsigned int us0_pulse_start; // Ticks comptés depuis le début de l'echo.
 unsigned int us1_pulse_start;
 unsigned int us0_threshold = 0x500; // Seuil par défaut (0 = désactivé).
@@ -101,7 +100,7 @@ void high_isr(void)
             else
                 passage = 0;
 
-            if(us0_autosend || passage)
+            if(us0_unmuted || passage)
             {
                 us0_underthres = (us0_echo < us0_threshold); // nouveau coté du seuil
                 while(!CANSendMessage(320 | us0_underthres | passage, (BYTE*)&us0_echo, 2,
@@ -132,7 +131,7 @@ void high_isr(void)
             else
                 passage = 0;
 
-            if(us1_autosend || passage)
+            if(us1_unmuted || passage)
             {
                 us1_underthres = (us1_echo < us1_threshold); // nouveau coté du seuil
                 while(!CANSendMessage(352 | us1_underthres | passage, (BYTE*)&us1_echo, 2,
@@ -174,16 +173,16 @@ void low_isr(void)
             }
         }
         else if(id == 332) { // sonar1Mute
-            us0_autosend = 0;
+            us0_unmuted = 0;
         }
         else if(id == 333) { // sonar1Unmute
-            us0_autosend = 1;
+            us0_unmuted = 1;
         }
         else if(id == 364) { // sonar2Mute
-            us1_autosend = 0;
+            us1_unmuted = 0;
         }
         else if(id == 365) { // sonar2Unmute
-            us1_autosend = 1;
+            us1_unmuted = 1;
         }
         else if(id == 328 && len == 2) { // sonar1Thres
             us0_threshold = ((unsigned int*) data)[0];
@@ -204,19 +203,19 @@ void low_isr(void)
     {
         INTCONbits.TMR0IF = 0;
 
-        if(PORTCbits.RC2 == bas_avant) // Evenement sur bouton avant.
+        if(PORTCbits.RC2 == bum_front) // Evenement sur bouton avant.
         {
-            bas_avant = !PORTCbits.RC2;
+            bum_front = !PORTCbits.RC2;
             led = led^1;
-            while(!CANSendMessage(256 | bas_avant,NULL, 0, /* ou 257 */
+            while(!CANSendMessage(256 | bum_front,NULL, 0, /* ou 257 */
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
         }
-        if(PORTCbits.RC3 == bas_arriere) // Evenement sur bouton arriere.
+        if(PORTCbits.RC3 == bump_back) // Evenement sur bouton arriere.
         {
-            bas_arriere = !PORTCbits.RC3;
+            bump_back = !PORTCbits.RC3;
             led = led^1;
-            while(!CANSendMessage(258 | bas_arriere, NULL, 0, /* ou 259 */
+            while(!CANSendMessage(258 | bump_back, NULL, 0, /* ou 259 */
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
         }
@@ -268,21 +267,6 @@ void main (void) {
     // Configuration du CAN.
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
 
-    // Signal de démarrage du programme.
-    led = 0;
-    for(i = 0; i < 20; i++) {
-        led = led ^ 1;
-        DelayMS(50);
-    }
-
-    // Interruption Buffer 0.
-    IPR3bits.RXB0IP = 0; // Priorité basse.
-    PIE3bits.RXB0IE = 1; // Activée.
-    PIR3bits.RXB0IF = 0;
-    
-    // Interruptions Buffer 1.
-    PIE3bits.RXB1IE = 0; // Interdite.
-
     // Configuration des masques et filtres.
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Buffer 1 Mask value.
@@ -294,9 +278,22 @@ void main (void) {
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
 
 
+    // Interruption Buffer 0.
+    IPR3bits.RXB0IP = 0; // Priorité basse.
+    PIE3bits.RXB0IE = 1; // Activée.
+    PIR3bits.RXB0IF = 0;
+
+    // Autorisation des interruptions.
     RCONbits.IPEN = 1;
-    INTCONbits.GIEH = 1; // Autorise interruptions.
+    INTCONbits.GIEH = 1;
     INTCONbits.GIEL = 1;
+
+    // Signal de démarrage.
+    led = 0;
+    for(i = 0; i < 20; i++) {
+        led = led ^ 1;
+        DelayMS(50);
+    }
 
 
     while(1) {
