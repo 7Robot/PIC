@@ -103,6 +103,7 @@ int dErreur=0, gErreur=0, gIErreur=0, dIErreur=0; /* Termes d'erreurs P et I*/
 long r = 0; /* Position rectiligne ou angulaire. */
 long Rconsigne=0, Eposition=0; /*Consigne et erreur de position (anglulaire ou rectiligne)*/
 char mode=0; /* Mode de fonctionnement 0:off, 1:ligne, -1:rotation */
+char residu=0; /*Erreur résiduelle */
 
 /*Variables CAN*/
 CANmsg message;
@@ -206,22 +207,13 @@ void low_isr(void)
             Vconsigne(Eposition,Eposition);
 
             if(fabs(r-Rconsigne) < 30)
-            {   
-                //DelayMS(100);
-                //resetTicks();
-                //Rconsigne = 0;
-                //position=0;
-                //r=0;
-                //Eposition=0;
-                
+            {
+                residu=fabs(r-Rconsigne);
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
-                CANSendMessage(1028,&prevB,1,
+                CANSendMessage(1028,&residu,1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME ); //Idle, byte quelconque
-
-
-
             }
         }
 
@@ -240,17 +232,11 @@ void low_isr(void)
 
             if(fabs(r-Rconsigne) < 30)
             {
-                //DelayMS(100);
-                //resetTicks();
-                //Rconsigne = 0;
-                //position=0;
-                //r=0;
-                //Eposition=0;
-                led = 1;
+                residu=fabs(r-Rconsigne);
                 Vconsigne(0,0);
                 resetTicks();
                 mode = 0;
-                CANSendMessage(1028,&prevB,1,
+                CANSendMessage(1028,&residu,1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME ); //Idle, byte quelconque
 
             }
@@ -266,15 +252,16 @@ void low_isr(void)
         CANReceiveMessage(&message.id,message.data,&message.len,&message.flags);
         }
 
+       led = led^1;
+       
        switch (message.id) {
                     case 1029: //Consigne en vitesse
                         mode = 0;
-                        led  = led^1;
                         Vconsigne(message.data[0],message.data[1]);
                       break;
 
                     case 1025: //Consigne ligne
-                        led  = led^1;
+                        resetTicks();
                         mode = 1;
                         Rconsigne = 0;
                         Rconsigne = (255*message.data[0]) | message.data[1]; /*Poid des bits inversé...*/
@@ -282,31 +269,26 @@ void low_isr(void)
                       break;
 
                     case 1026: //Consigne rotation
-                        led  = led^1;
+                        resetTicks();
                         mode = -1;
                         Rconsigne = 0;
                         Rconsigne = (255*message.data[0]) | message.data[1]; /*Poid des bits inversé...*/
                         /*Pas beau mais permet de gérer le signe...*/
                       break;
 
-                    case 1030: //Marche-Arrêt
-                        led = led^1;
-                        if(message.data[0] == 'A')
-                        {
-                            INTCONbits.TMR0IE = 0;
-                            mode = 0;
-                        }
-                        else if(message.data[0] == 'M')
-                        {
-                            resetTicks();
-                            mode = 0;
-                            INTCONbits.TMR0IE = 1;
-                        }
+                    case 1030: //Marche
+                        resetTicks();
+                        mode = 0;
+                        INTCONbits.TMR0IE = 1;                        
                       break;
+
+                    case 1031: //arrêt
+                        INTCONbits.TMR0IE = 0;
+                        mode = 0;
+                        break;
 
                     case 1051: //Stop
                         mode = 0;
-                        led = led^1;
                         Vconsigne(0,0);
                       break;
 
@@ -359,19 +341,6 @@ void main (void)
     /*Configuration du CAN*/
     CANInitialize(1,16,7,6,2,CAN_CONFIG_VALID_STD_MSG);
     Delay10KTCYx(200);
-
-    
-    // Interruptions Buffer1
-    IPR5bits.RXB1IP=0;// : priorité haute par defaut du buff 1
-    PIE5bits.RXB1IE=0;//autorise pas  int sur buff1
-    PIR5bits.RXB1IF=0;//mise a 0 du flag*/
-
-    // Interruption Buffer 0
-    IPR5bits.RXB0IP=0;// : priorité basse du buff 0
-    PIE5bits.RXB0IE=1;//autorise int sur buff0
-    PIR5bits.RXB0IF=0;//mise a 0 du flag
-
-
     // Configuration des masques et filtres
     // Set CAN module into configuration mode
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
@@ -381,13 +350,15 @@ void main (void)
     CANSetMask(CAN_MASK_B2, 0xFFFFFF ,CAN_CONFIG_STD_MSG );
     // Set Buffer 1 Filter values
     CANSetFilter(CAN_FILTER_B1_F1,0b10000000000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F1,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F3,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F4,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B1_F2,0b10000000000,CAN_CONFIG_STD_MSG );
     // Set CAN module into Normal mode
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
+    // Interruption Buffer 0
+    IPR5bits.RXB0IP=0;// : priorité basse du buff 0
+    PIE5bits.RXB0IE=1;//autorise int sur buff0
+    PIR5bits.RXB0IF=0;//mise a 0 du flag
+    // Interruptions Buffer1
+    PIE5bits.RXB1IE=0; //Interdite
 
     
     /* Signal de démarrage du programme. */

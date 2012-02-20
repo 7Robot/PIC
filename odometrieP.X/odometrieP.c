@@ -20,6 +20,7 @@
 #include <timers.h>
 #include <math.h>
 #include <portb.h>
+#include "../libcan/can18xx8.h"
 
 
 /////*CONFIGURATION*/////
@@ -75,6 +76,9 @@ volatile int gTicks = 0;
 volatile int dTicks = 0;
 
 volatile int t = 0; // Chronomètre.
+
+//CAN
+CANmsg message;
 
 /////*INTERRUPTIONS*/////
 
@@ -146,6 +150,42 @@ void high_isr(void)
 #pragma interrupt low_isr
 void low_isr(void)
 {
+    if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
+    {
+        //Interruption de réception CAN.
+        /*On stocke la valeur. */
+        led  = led^1;
+        
+        while(CANIsRxReady())
+        {
+            CANReceiveMessage(&message.id,message.data,
+                          &message.len,&message.flags);
+        }
+
+        switch (message.id) {
+                    case 513: //Renvoyer la position
+                      //CODE
+                      break;
+                    case 514: //Broadcast OFF
+                      //CODE
+                      break;
+                    case 515: //Broadcast ON
+                      //CODE
+                      break;
+                    case 517: //Initialisation ou Recalage
+                      //CODE
+                      break;
+                      
+                    default:
+                      // Rien
+                      break;
+                    }
+
+        PIR3bits.RXB0IF=0;
+        PIR3bits.RXB1IF=0;
+        PIR3bits.ERRIF=0;
+
+    }
 
 }
 
@@ -183,14 +223,24 @@ void main (void)
     PORTC   = 0xFF; 
 
 
-    /* Signal de démarrage du programme. */
-    led = 1;
-    for(i=0;i<20;i++)
-    {
-        led=led^1;
-        DelayMS(50);
-    }
-    led = 0;
+    // Configuration du CAN.
+    CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
+    // Configuration des masques et filtres.
+    CANSetOperationMode(CAN_OP_MODE_CONFIG);
+    // Set Buffer 1 Mask value.
+    CANSetMask(CAN_MASK_B1, 0b01000000000, CAN_CONFIG_STD_MSG);
+    // Set Buffer 1 Filter values.
+    CANSetFilter(CAN_FILTER_B1_F1, 0b01000000000, CAN_CONFIG_STD_MSG);
+    CANSetFilter(CAN_FILTER_B1_F2, 0b01000000000, CAN_CONFIG_STD_MSG);
+    // Set CAN module into Normal mode.
+    CANSetOperationMode(CAN_OP_MODE_NORMAL);
+    // Interruption Buffer 0.
+    IPR3bits.RXB0IP = 0; // Priorité basse.
+    PIE3bits.RXB0IE = 1; // Activée.
+    PIR3bits.RXB0IF = 0;
+    // Interruptions Buffer 1.
+    PIE3bits.RXB1IE = 0; // Interdite.
+
 
     // Interruptions du PORTB (haute priorité par défaut)
     OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
@@ -200,8 +250,21 @@ void main (void)
     // Timer0 pour chronométrer les opérations flottantes.
     OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
 
-    INTCONbits.GIE = 1;
+    /* Signal de démarrage du programme. */
+    led = 1;
+    for(i=0;i<20;i++)
+    {
+        led=led^1;
+        DelayMS(50);
+    }
+    led = 0;
 
+    //Autorisation des interruptions
+    RCONbits.IPEN = 1;
+    INTCONbits.GIEH = 1;
+    INTCONbits.GIEL = 1;
+
+    
     //calibration();
 
     while(1) {
@@ -242,13 +305,3 @@ void main (void)
 
 
 ///// Définition des fonctions du programme. /////
-void DelayMS(int delay)
-{
-    /*Attente en ms, sur cette carte c'est utile, et vu que le Quart est soudé,
-     il y a peu de raisons pour que ça change...*/
-    int cp = 0;
-    for(cp=0; cp<delay; cp++)
-    {
-        Delay1KTCYx(5);
-    }
-}

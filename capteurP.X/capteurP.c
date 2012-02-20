@@ -266,10 +266,32 @@ void main (void) {
     // OpenRBxINT faits à la main (sauf pullup, par défaut).
 
 
+<<<<<<< HEAD
+    // Configuration des masques et filtres
+    // Set CAN module into configuration mode
+    CANSetOperationMode(CAN_OP_MODE_CONFIG);
+    // Set Buffer 1 Mask value
+    CANSetMask(CAN_MASK_B1, 0b00100000000,CAN_CONFIG_STD_MSG);
+    // Set Buffer 2 Mask value
+    CANSetMask(CAN_MASK_B2, 0xFFFFFF ,CAN_CONFIG_STD_MSG );
+    // Set Buffer 1 Filter values
+    CANSetFilter(CAN_FILTER_B1_F1,0b10000000000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F1,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F3,0b0000,CAN_CONFIG_STD_MSG );
+    CANSetFilter(CAN_FILTER_B2_F4,0b0000,CAN_CONFIG_STD_MSG );
+    // Set CAN module into Normal mode
+    CANSetOperationMode(CAN_OP_MODE_NORMAL);
+
+
+    /* Signal de démarrage du programme. */
+=======
     // Configuration du CAN.
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
 
     // Signal de démarrage du programme.
+>>>>>>> af465047f5a0f0cdf36041f006edb66fce985c43
     led = 0;
     for(i = 0; i < 20; i++) {
         led = led ^ 1;
