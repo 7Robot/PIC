@@ -41,7 +41,7 @@
 #define XTAL    20000000
 #define led     PORTAbits.RA5
 
-// Calibration.
+// Calibration TODO.
 #define DTHETA  (2 * 3.14159265 / 16300.) // radian
 #define DL      (51. / 7050.) // cm
 
@@ -56,12 +56,11 @@
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
-void DelayMS(int delay);
 
 /////*VARIABLES GLOBALES*/////
-int i=0;
+int i = 0;
 
-char prevB = 0; // Valeur précédente du PORTB, pour déterminer type de front
+char prevB = 0; // Valeur précédente du PORTB, pour déterminer le type de front
 
 float x = 0;
 float y = 0;
@@ -81,7 +80,6 @@ volatile int t = 0; // Chronomètre.
 CANmsg message;
 
 /////*INTERRUPTIONS*/////
-
 #pragma code high_vector=0x08
 void high_interrupt(void)
 {
@@ -150,43 +148,36 @@ void high_isr(void)
 #pragma interrupt low_isr
 void low_isr(void)
 {
+    // Réception CAN.
     if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
     {
-        //Interruption de réception CAN.
-        /*On stocke la valeur. */
-        led  = led^1;
-        
-        while(CANIsRxReady())
-        {
-            CANReceiveMessage(&message.id,message.data,
-                          &message.len,&message.flags);
+        while(CANIsRxReady()) {
+            CANReceiveMessage(&message.id, message.data,
+                              &message.len, &message.flags);
         }
 
-        switch (message.id) {
-                    case 513: //Renvoyer la position
-                      //CODE
-                      break;
-                    case 514: //Broadcast OFF
-                      //CODE
-                      break;
-                    case 515: //Broadcast ON
-                      //CODE
-                      break;
-                    case 517: //Initialisation ou Recalage
-                      //CODE
-                      break;
-                      
-                    default:
-                      // Rien
-                      break;
-                    }
+        led = led ^ 1;
 
-        PIR3bits.RXB0IF=0;
-        PIR3bits.RXB1IF=0;
-        PIR3bits.ERRIF=0;
+        if(message.id == 513) { // odoReq
+            int data[3];
+            // TODO
+            //data[0] = x / MM;
+            //data[1] = y / MM;
+            //data[2] = theta / DEG;
+            while(!CANSendMessage(516, (BYTE*)data, 6,
+                CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
+            }
+        }
+        else {
+            led = led ^ 1; // On annule la commutation précédente de la LED.
+        }
+        // 514 odoMute
+        // 515 odoUnmute
+        // 516 odoPosition
+        // 517 odoSet
 
+        PIR3bits.RXB0IF = 0;
     }
-
 }
 
 
@@ -210,17 +201,24 @@ void calibration()
 }
 
 /////*PROGRAMME PRINCIPAL*/////
-void main (void)
-{
-    /* Initialisations. */
-    ADCON1 = 0x0F ;
-    ADCON0 = 0x00 ;
-    WDTCON = 0x00 ;
+void main (void) {
+    // Initialisations.
+    ADCON1 = 0x0F;
+    ADCON0 = 0;
+    WDTCON = 0;
 
-    /* Configurations. */
-    TRISA   = 0b11011111; // TODO par maxime: vérifier (il y avait un 0x1101...)
-    TRISB   = 0xFF;
-    PORTC   = 0xFF; 
+    // Configurations.
+    TRISA = 0b11011111; // TODO par maxime: vérifier (il y avait un 0x1101...)
+    TRISB = 0xFF;
+    PORTC = 0xFF;
+
+    // Interruptions du PORTB (haute priorité par défaut).
+    OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
+    OpenRB1INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
+    OpenPORTB(PORTB_CHANGE_INT_ON & PORTB_PULLUPS_OFF);
+
+    // Timer0 pour chronométrer les opérations flottantes.
+    OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
 
 
     // Configuration du CAN.
@@ -234,35 +232,24 @@ void main (void)
     CANSetFilter(CAN_FILTER_B1_F2, 0b01000000000, CAN_CONFIG_STD_MSG);
     // Set CAN module into Normal mode.
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
+
+
     // Interruption Buffer 0.
     IPR3bits.RXB0IP = 0; // Priorité basse.
     PIE3bits.RXB0IE = 1; // Activée.
     PIR3bits.RXB0IF = 0;
-    // Interruptions Buffer 1.
-    PIE3bits.RXB1IE = 0; // Interdite.
 
-
-    // Interruptions du PORTB (haute priorité par défaut)
-    OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
-    OpenRB1INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
-    OpenPORTB(PORTB_CHANGE_INT_ON & PORTB_PULLUPS_OFF);
-
-    // Timer0 pour chronométrer les opérations flottantes.
-    OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
-
-    /* Signal de démarrage du programme. */
-    led = 1;
-    for(i=0;i<20;i++)
-    {
-        led=led^1;
-        DelayMS(50);
-    }
-    led = 0;
-
-    //Autorisation des interruptions
+    // Autorisation des interruptions.
     RCONbits.IPEN = 1;
     INTCONbits.GIEH = 1;
     INTCONbits.GIEL = 1;
+
+    // Signal de démarrage.
+    led = 0;
+    for(i = 0; i < 20; i++) {
+        led = led ^ 1;
+        DelayMS(50);
+    }
 
     
     //calibration();
@@ -302,6 +289,3 @@ void main (void)
 // 1 / 5e6 * 1054 = 0.0002108s temps pour un cos et un sin
 // 1 / 30 / 80    = 0.0004166s temps entre deux tics
 }
-
-
-///// Définition des fonctions du programme. /////

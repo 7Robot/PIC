@@ -162,6 +162,7 @@ void low_isr(void)
         }
 
         led = led ^ 1;
+        
         if(id == 324) { // sonar1Req
             while(!CANSendMessage(320 | us0_underthres, (BYTE*)&us0_echo, 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
@@ -244,13 +245,13 @@ void low_isr(void)
 void main (void) {
     // Initialisations.
     ADCON1 = 0x0F;
-    ADCON0 = 0b00000000;
+    ADCON0 = 0;
     WDTCON = 0;
 
     // Configurations.
-    TRISA  = 0b11101111;
-    TRISB  = 0b11111111;
-    TRISC  = 0b00111111;
+    TRISA = 0b11101111;
+    TRISB = 0b11111111;
+    TRISC = 0b00111111;
 
     // Timer de rafraichissement des BP et de chronométrage des sonars
     OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_2); // 38Hz
@@ -266,7 +267,6 @@ void main (void) {
 
     // Configuration du CAN.
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
-
     // Configuration des masques et filtres.
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Buffer 1 Mask value.
