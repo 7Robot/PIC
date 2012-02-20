@@ -781,9 +781,9 @@ BOOL CANReceiveMessage(unsigned long* id,
 
 //Structure message
 typedef struct{
-    long id;
-    char len;
-    char data[8];
+    unsigned long id;
+    BYTE len;
+    BYTE data[8];
     enum CAN_RX_MSG_FLAGS flags;
 }CANmsg;
 

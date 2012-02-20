@@ -45,8 +45,6 @@
 void high_isr(void);
 void low_isr(void);
 void DelayMS(int delay);
-void trigger_us0();
-void trigger_us1();
 
 /////*VARIABLES GLOBALES*/////
 int i = 0;
@@ -149,68 +147,62 @@ void high_isr(void)
     }
 }
 
-// TODO: routine sendmessage + LED
-// TODO: routine readmessage
-// TODO: routine initialisation can + LED + DelayMS
-
 #pragma interrupt low_isr
 void low_isr(void)
 {
     // Réception CAN.
     if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
-    { // TODO: tester
+    {
         unsigned long id;
         BYTE data[8];
         BYTE len;
         enum CAN_RX_MSG_FLAGS flags;
-        
+
         while(CANIsRxReady()) {
             CANReceiveMessage(&id, data, &len, &flags);
         }
 
+        led = led ^ 1;
         if(id == 324) { // sonar1Req
             while(!CANSendMessage(320 | us0_underthres, (BYTE*)&us0_echo, 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
-            led = led ^ 1;
         }
         else if(id == 356) { // sonar2Req
-            while(!CANSendMessage(320 | us1_underthres, (BYTE*)&us1_echo, 2,
+            while(!CANSendMessage(352 | us1_underthres, (BYTE*)&us1_echo, 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
-            led = led ^ 1;
         }
-        else if(id | 1 == 333) { // sonar1Mute / sonar1Unmute
-            us0_autosend = id & 1;
-            led = led ^ 1;
+        else if(id == 332) { // sonar1Mute
+            us0_autosend = 0;
         }
-        else if(id | 1 == 365) { // sonar2Mute / sonar2Unmute
-            us1_autosend = id & 1;
-            led = led ^ 1;
+        else if(id == 333) { // sonar1Unmute
+            us0_autosend = 1;
+        }
+        else if(id == 364) { // sonar2Mute
+            us1_autosend = 0;
+        }
+        else if(id == 365) { // sonar2Unmute
+            us1_autosend = 1;
         }
         else if(id == 328 && len == 2) { // sonar1Thres
             us0_threshold = ((unsigned int*) data)[0];
-            led = led ^ 1;
         }
         else if(id == 360 && len == 2) { // sonar2Thres
             us1_threshold = ((unsigned int*) data)[0];
-            led = led ^ 1;
         }
         else {
-            Nop();
+            led = led ^ 1; // On annule la commutation précédente de la LED.
         }
 
         PIR3bits.RXB0IF = 0;
     }
 
 
-    // La génération du pulse est bloquante, donc lente, donc low.
+    // Génération des pulses sonars et polling des bumpers.
     if(INTCONbits.TMR0IE && INTCONbits.TMR0IF) // Vingt fois par secondes, non stop.
     {
         INTCONbits.TMR0IF = 0;
-
-        PORTCbits.RC6 = 1; // Trigger pulse pour sonar1.
-        PORTCbits.RC7 = 1; // Trigger pulse pour sonar2.
 
         if(PORTCbits.RC2 == bas_avant) // Evenement sur bouton avant.
         {
@@ -229,17 +221,23 @@ void low_isr(void)
             }
         }
 
-        // TODO: wait moins de 10us, cf remarque
+        // On alterne les triggers pulse, et pas besoin
+        // d'attendre plus car ils restent allumés la moitié du temps (50ms).
+        if(PORTCbits.RC6) {
+            PORTCbits.RC6 = 0; // Fin du pulse => déclenchement.
+            PORTCbits.RC7 = 1; // Trigger pulse pour us1.
 
-        Delay10TCYx(5); // 10us minimum, mais ce code a surement duré plus longtemps.
-        PORTCbits.RC7 = 0;
-        PORTCbits.RC6 = 0;
+            INTCON2bits.INTEDG0 = 1; // Rising (echo us0).
+            INTCONbits.INT0IE = 1;
+        }
+        else {
+            PORTCbits.RC6 = 1; // Début pulse pour us0.
+            PORTCbits.RC7 = 0; // Fin du pulse => déclenchement.
 
+            INTCON2bits.INTEDG1 = 1; // Rising (echo us1).
+            INTCON3bits.INT1IE = 1;
+        }
         // Début de l'attente des echos.
-        INTCON2bits.INTEDG0 = 1; // rising echo0
-        INTCON2bits.INTEDG1 = 1; // rising echo1
-        INTCON3bits.INT1IE = 1;
-        INTCONbits.INT0IE = 1;
     }
 }
 
@@ -256,42 +254,21 @@ void main (void) {
     TRISC  = 0b00111111;
 
     // Timer de rafraichissement des BP et de chronométrage des sonars
-    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_4); // 19Hz
+    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_2); // 38Hz
     INTCON2bits.TMR0IP = 0; // priorité basse, car les pulses sonars prennent du temps
 
-    // Il faut laisser 50ms (20Hz) entre deux débordements (limite des sonars)
-    // du coup on ne vérifie pas les boutons plus souvent, mais pas grave.
+    // Il faut laisser 50ms (20Hz) entre deux débordements (limite des sonars).
+    // Mais on alterne les salves donc 38Hz est parfait.
+    // Du coup on ne vérifie pas les boutons plus souvent, mais pas grave.
 
     // Interruptions sur les pins "Echo output" des sonars (AN0 et AN1).
     // OpenRBxINT faits à la main (sauf pullup, par défaut).
 
 
-<<<<<<< HEAD
-    // Configuration des masques et filtres
-    // Set CAN module into configuration mode
-    CANSetOperationMode(CAN_OP_MODE_CONFIG);
-    // Set Buffer 1 Mask value
-    CANSetMask(CAN_MASK_B1, 0b00100000000,CAN_CONFIG_STD_MSG);
-    // Set Buffer 2 Mask value
-    CANSetMask(CAN_MASK_B2, 0xFFFFFF ,CAN_CONFIG_STD_MSG );
-    // Set Buffer 1 Filter values
-    CANSetFilter(CAN_FILTER_B1_F1,0b10000000000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B1_F2,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F1,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F2,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F3,0b0000,CAN_CONFIG_STD_MSG );
-    CANSetFilter(CAN_FILTER_B2_F4,0b0000,CAN_CONFIG_STD_MSG );
-    // Set CAN module into Normal mode
-    CANSetOperationMode(CAN_OP_MODE_NORMAL);
-
-
-    /* Signal de démarrage du programme. */
-=======
     // Configuration du CAN.
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
 
     // Signal de démarrage du programme.
->>>>>>> af465047f5a0f0cdf36041f006edb66fce985c43
     led = 0;
     for(i = 0; i < 20; i++) {
         led = led ^ 1;
@@ -305,12 +282,6 @@ void main (void) {
     
     // Interruptions Buffer 1.
     PIE3bits.RXB1IE = 0; // Interdite.
-
-    /*// Interruption sur erreur
-    IPR3bits.ERRIP = 1; // Priorité haute.
-    PIE3bits.ERRIE = 1; // Activée.
-    PIR3bits.ERRIF = 0;
-    //*/
 
     // Configuration des masques et filtres.
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
