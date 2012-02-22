@@ -108,6 +108,7 @@ long Rconsigne=0, Eposition=0; /*Consigne et erreur de position (anglulaire ou r
 char mode=0; /* Mode de fonctionnement 0:off, 1:ligne, -1:rotation */
 char residu=0; /*Erreur résiduelle */
 int convi=0;
+int dVFinale =0, gVFinale=0;// Pour changement de vitesse avec rampe
 
 /*Variables CAN*/
 CANmsg message;
@@ -210,8 +211,8 @@ void low_isr(void)
        if(mode == 1)
         {
             r = Kr*(gTicks+dTicks)/2;
-            Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
-            Eposition = Eposition/30;
+            Eposition = sqrt(fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne)));
+            Eposition = 3*Eposition/2;
             if(Eposition > Vmax) Eposition = Vmax;
             if(Eposition == 0 && r < 100) Eposition = 1;
             if(Rconsigne < 0) Eposition = -Eposition;
@@ -234,8 +235,8 @@ void low_isr(void)
         if(mode == -1)
         {
             r = Kr*(gTicks-dTicks)/2;
-            Eposition = fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne));
-            Eposition = Eposition/30;
+            Eposition = sqrt(fabs(Rconsigne)-fabs(2*fabs(r)-fabs(Rconsigne)));
+            Eposition = 3*Eposition/2;
             if(Eposition > Vmax) Eposition = Vmax;
 
             if(Eposition == 0 && r < 100) Eposition = 1;
@@ -256,6 +257,29 @@ void low_isr(void)
             }
         }
 
+        /* Changement de vitesse avec rampe */
+        if(mode == 2)
+        {
+            if(dConsigne < dVFinale)
+            {
+                dConsigne++;
+            }
+            else if(dConsigne > dVFinale)
+            {
+                dConsigne--;
+            }
+            if(gConsigne < gVFinale)
+            {
+                gConsigne++;
+            }
+            else if(gConsigne > gVFinale)
+            {
+                gConsigne--;
+            }     
+        }
+
+
+
         INTCONbits.TMR0IF = 0;
     }
     
@@ -272,6 +296,24 @@ void low_isr(void)
                     case 1029: //Consigne en vitesse
                         mode = 0;
                         Vconsigne(message.data[0],message.data[1]);
+                      break;
+
+                    case 1032: //Changement de vitesse par rampe
+                        mode = 2;
+                        if(mode != 2)
+                        {
+                            resetTicks();
+                        }
+                        gVFinale = message.data[0];
+                        dVFinale = message.data[1];
+                        if(gVFinale > Vmax)
+                            gVFinale = Vmax;
+                        else if(gVFinale < -Vmax)
+                            gVFinale = -Vmax;
+                        if(dVFinale > Vmax)
+                            dVFinale = Vmax;
+                        else if(dVFinale < -Vmax)
+                            dVFinale = -Vmax;
                       break;
 
                     case 1025: //Consigne ligne
