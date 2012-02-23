@@ -37,19 +37,51 @@
 #pragma config LVP = OFF
 
 /////*CONSTANTES*/////
-#define XTAL        20000000
-#define led         PORTCbits.RC0
+#define XTAL    20000000
+#define led     PORTCbits.RC0
+
+#define servo   PORTCbits.RC4
+#define laser   PORTBbits.RB1
+#define temoin  PORTCbits.RC6
+#define tempsMin 0.50               //Avec ces valeurs on a 180°
+#define tempsMax 2.26  //2.44 max
+#define omega 7.81 // Vitesse angulaire de rotation du servomoteur
 
 
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
 
+void InterruptServo() ;
+void InterruptLaser();
+void WriteAngle(int a);
+void GetData();
+void Mesures();
+unsigned long max(unsigned int a, unsigned int b);
+unsigned long min (unsigned int a, unsigned int b);
+
 
 /////*VARIABLES GLOBALES*/////
 int i = 0;
 CANmsg message;
+CANmsg incoming;
 
+int ip = 0;
+volatile unsigned int angle = 0 ;
+int pulse = 0 ;
+int dir = 1;
+unsigned long temps[5]  = {0};
+unsigned long distance[5] = {0};
+unsigned long position[5] = {0};
+volatile unsigned int timeData[20] = {0};
+
+int nbrepoint = 0;
+unsigned long pointMax[5] = {0};
+unsigned long pointMin[5]= {0};
+int nbreBalises = 0;
+
+char mesures = 0;
+char broadcast = 0;
 
 /////*INTERRUPTIONS*/////
 #pragma code high_vector=0x08
@@ -67,38 +99,37 @@ void low_interrupt(void)
 #pragma interrupt high_isr
 void high_isr(void)
 {
-
+    InterruptServo() ;
 }
 
 #pragma interrupt low_isr
 void low_isr(void)
 {
+    InterruptLaser();
     // Réception CAN.
     if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
     {
 
         while(CANIsRxReady()) {
-            CANReceiveMessage(&message.id, message.data, &message.len, &message.flags);
+            CANReceiveMessage(&incoming.id, incoming.data, &incoming.len, &incoming.flags);
         }
         
-        switch (message.id) {
-                    case 132: //Renvoyer distace/angle objet le plus proche
-                      //CODE
-                      break;
-                    case 133: //Renvoyer toutes les infos
-                      //CODE
+        switch (incoming.id) {
+                    case 132: //Renvoyer distace/angle objet
+                        CANSendMessage(&message.id,message.data,&message.len,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                       break;
                     case 134: //Broadcast ON
-                      //CODE
+                        broadcast = 1;
                       break;
                     case 135: //Boradcast OFF
-                      //CODE
+                        broadcast = 0;
                       break;
                     case 136: //Mesures OFF
-                      //CODE
+                        mesures = 0;
                       break;
                     case 137: //Mesures ON
-                      //CODE
+                        mesures = 1;
                       break;
                       
                     default:
@@ -123,7 +154,33 @@ void main (void) {
     // Configurations.
     TRISA  = 0b11111111;
     TRISB  = 0b11111111;
-    TRISC  = 0b11111110;
+    TRISC  = 0b10101110;
+
+    servo = 0 ;
+    message.id = 133;
+    message.len = 8;
+
+
+    OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_32 /* Internal oscillator of 20MHz */);
+    T0CONbits.TMR0ON = 0; /*On ne démarre pas le TMR0*/
+    WriteTimer0(0);
+
+    OpenTimer3(TIMER_INT_ON & T3_16BIT_RW & T3_SOURCE_INT & T3_PS_1_2 & T3_SYNC_EXT_OFF);
+
+    RCONbits.IPEN = 1;  /* Autorise différents niveaux d'interruptions*/
+    INTCONbits.GIE = 1; /* Autorise les interruptions hauts niveaux. */
+    INTCONbits.PEIE = 1; /* Autorise les interruptions bas niveaux. */
+
+    INTCONbits.TMR0IF = 0; /* Flag de TMR0*/
+    INTCON2bits.TMR0IP = 1; /* L'interuption sur TMR0 est en haute priorité*/
+
+    PIR2bits.TMR3IF = 0; /*Flag de TMR3*/
+    IPR2bits.TMR3IP = 1; /*L'interuption de TMR3 est en haute priorité*/
+
+    INTCON3bits.INT1E = 1; /*Enable interrupt on RB1*/
+    INTCON3bits.INT1F = 0; /*External Interrupt Flag bit of RB1*/
+    INTCON2bits.INTEDG1 = 1; /* On RB1 : 1:interrupt on risong edge  0:interrupt on falling edge */
+    INTCON3bits.INT1IP = 0;  /*INT1 is a low level interrup*/
 
     
     // Configuration du CAN.
@@ -159,6 +216,188 @@ void main (void) {
 
 
     while(1) {
-
+        Mesures(mesures);
     }
 }
+
+
+void WriteAngle(int a)
+{
+    angle = a;
+    WriteTimer0(0); /*On initialise TMR1*/
+    ip = 0; /*On initialise le tableau timeData[] sur la première case*/
+    T0CONbits.TMR0ON = 1; /*On démarre le TMR0 pour le tableau timeData[]*/
+}
+
+void GetData()
+{
+   T0CONbits.TMR0ON = 0;
+   nbrepoint = ip;
+
+   pointMin[0] = timeData[0];
+   pointMax[0] = timeData[1];
+   nbreBalises = 1;
+   ip = 1;
+   while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+   {
+        pointMax[0] = timeData[2*ip + 1];
+        ip++;
+   }
+
+   if (2*ip < nbrepoint)
+   {
+        pointMin[1] = timeData[2*ip];
+        pointMax[1] = timeData[2*1 + 1];
+        while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+        {
+            pointMax[1] = timeData[2*ip + 1];
+            ip++;
+        }
+        nbreBalises = 2;
+        if (2*ip < nbrepoint)
+        {
+            pointMin[2] = timeData[2*ip];
+            pointMax[2] = timeData[2*1 + 1];
+            while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+            {
+                pointMax[2] = timeData[2*ip + 1];
+            ip++;
+            }
+            nbreBalises = 3;
+            if (2*ip < nbrepoint)
+            {
+                pointMin[3] = timeData[2*ip];
+                pointMax[3] = timeData[2*1 + 1];
+                while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+                {
+                    pointMax[3] = timeData[2*ip + 1];
+                    ip++;
+                }
+                nbreBalises = 4;
+//                if (2*ip < nbrepoint)
+//                {
+//                    pointMin[4] = timeData[2*ip];
+//                    pointMax[4] = timeData[2*1 + 1];
+//                    while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+//                    {
+//                        pointMax[4] = timeData[2*ip + 1];
+//                        ip++;
+//                    }
+//                    nbreBalises = 5;
+//                }
+            }
+        }
+    }
+
+   distance[0] = 6.7/(2*tan(omega*temps[0]*0.000001/2)); //distance en cm
+   distance[1] = 6.7/(2*tan(omega*temps[1]*0.000001/2)); //distance en cm
+   distance[2] = 6.7/(2*tan(omega*temps[0]*0.000001/2)); //distance en cm
+   distance[3] = 6.7/(2*tan(omega*temps[0]*0.000001/2)); //distance en cm
+   //distance[4] = 6.7/(2*tan(omega*temps[0]*0.000001/2)); //distance en cm
+
+   position[0] =  (omega * (pointMax[0] + pointMin[0])/2 * 6.4 * 0.000001)*180/3.14159;
+   position[1] =  (omega * (pointMax[1] + pointMin[1])/2 * 6.4 * 0.000001)*180/3.14159;
+   position[2] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
+   position[3] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
+   //position[4] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
+
+   for (int hh = 0; hh < 4; hh++)
+   {
+       if(distance[hh] >= 255)
+       {
+           distance[hh] = 255;
+       }
+       if(position[hh] >= 255)
+       {
+           distance[hh] = 255;
+       }
+   }
+
+   message.data[0] = (char)distance[0];
+   message.data[1] = (char)position[0];
+
+   message.data[2] = (char)distance[1];
+   message.data[3] = (char)position[1];
+
+   message.data[4] = (char)distance[2];
+   message.data[5] = (char)position[2];
+
+   message.data[6] = (char)distance[3];
+   message.data[7] = (char)position[3];
+
+   if(broadcast)
+   {
+    CANSendMessage(&message.id,message.data,&message.len,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+   }
+}
+
+void Mesures(int a)
+{
+    if(a)
+    {
+        WriteAngle(0);
+        DelayMS(500);
+        GetData();
+        WriteAngle(180);
+        DelayMS(500);
+        GetData();
+    }
+    else
+    {
+        servo = 0;
+    }
+}
+
+
+void InterruptServo()
+{
+    if(PIE2bits.TMR3IE && PIR2bits.TMR3IF)
+     {
+        if (pulse == 1)
+            {
+            WriteTimer3(65535 - tempsMin*65535/26.214  - angle * (65535/26.214) * (tempsMax - tempsMin) / 180);
+            servo = 1;
+            pulse = 0;
+            }
+     else
+            {
+            WriteTimer3(15535); // 20ms
+             servo = 0;
+             pulse = 1;
+            }
+        PIR2bits.TMR3IF = 0;
+    }
+}
+
+void InterruptLaser()
+{
+    if (INTCON3bits.INT1E && INTCON3bits.INT1F)
+    {
+        //temoin ^= 1;
+        timeData[ip++] = ReadTimer0();
+        INTCON2bits.INTEDG1 ^= 1;
+        INTCON3bits.INT1F = 0;
+    }
+ }
+
+
+unsigned long max(unsigned int a, unsigned int b)
+{
+    if(a >= b)
+        return a;
+    return b;
+}
+unsigned long min(unsigned int a, unsigned int b)
+{
+    if(a<= b)
+        return a;
+    return b;
+}
+
+
+
+/*TODO
+ - adapter angle lorsqu'on part de 180°
+ - cas de départ ou arrêt sur tourelle
+ */

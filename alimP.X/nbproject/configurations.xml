@@ -21,8 +21,8 @@
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
-      <itemPath>/media/Données/Documents/7robot/PIC/alimP.X/alimP.c</itemPath>
-      <itemPath>/media/Données/Documents/7robot/PIC/libcan/can18xx8.c</itemPath>
+      <itemPath>alimP.c</itemPath>
+      <itemPath>../libcan/can18xx8.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -55,7 +55,8 @@
         <makeCustomizationPostStep></makeCustomizationPostStep>
         <makeCustomizationAlternativeFileToLoadEnabled>false</makeCustomizationAlternativeFileToLoadEnabled>
         <makeCustomizationAlternativeFileToLoad></makeCustomizationAlternativeFileToLoad>
-        <makeCustomizationPutChecksumInUserID>false</makeCustomizationPutChecksumInUserID>
+        <makeCustomizationUseOfUserID>NONE</makeCustomizationUseOfUserID>
+        <makeCustomizationUserID></makeCustomizationUserID>
       </makeCustomizationType>
       <C18>
       </C18>
@@ -83,8 +84,8 @@
         <property key="programoptions.preserveprogramrange.start" value="0x0"/>
         <property key="voltagevalue" value="5.0"/>
         <property key="programoptions.preserveprogramrange" value="false"/>
-        <property key="memories.programmemory.start" value="0x0"/>
         <property key="programoptions.eraseb4program" value="true"/>
+        <property key="memories.programmemory.start" value="0x0"/>
         <property key="memories.programmemory.end" value="0xffff"/>
         <property key="poweroptions.powerenable" value="false"/>
       </PICkit3PlatformTool>
