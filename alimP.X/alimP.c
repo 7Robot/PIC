@@ -117,7 +117,7 @@ void low_isr(void)
         
         switch (incoming.id) {
                     case 132: //Renvoyer distace/angle objet
-                        CANSendMessage(&message.id,message.data,&message.len,
+                        CANSendMessage(133,message.data,8,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                       break;
                     case 134: //Broadcast ON
@@ -137,8 +137,9 @@ void low_isr(void)
                       // Rien
                       break;
                     }
-
         led = led ^1;
+
+        
 
         PIR3bits.RXB0IF = 0;
     }
@@ -158,10 +159,7 @@ void main (void) {
     TRISC  = 0b10101110;
 
     servo = 0 ;
-    message.id = 133;
-    message.len = 8;
-
-
+    
     OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_32 /* Internal oscillator of 20MHz */);
     T0CONbits.TMR0ON = 0; /*On ne démarre pas le TMR0*/
     WriteTimer0(0);
