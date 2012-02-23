@@ -160,6 +160,7 @@ void low_isr(void)
         while(CANIsRxReady()) {
             CANReceiveMessage(&id, data, &len, &flags);
         }
+        PIR3bits.RXB0IF = 0;
 
         led = led ^ 1;
         
@@ -194,8 +195,6 @@ void low_isr(void)
         else {
             led = led ^ 1; // On annule la commutation précédente de la LED.
         }
-
-        PIR3bits.RXB0IF = 0;
     }
 
 
