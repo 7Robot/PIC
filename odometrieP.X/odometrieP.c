@@ -102,53 +102,44 @@ void low_interrupt(void)
 #pragma interrupt high_isr
 void high_isr(void)
 {
-   // Interruptions gA
-   if(INTCONbits.INT0IE && INTCONbits.INT0IF)
-   {
-       if(RISE_gA == PIN_gB)
-           gTicks++;
-       else
-           gTicks--;
+    if(INTCONbits.INT0IE && INTCONbits.INT0IF) { // Interruptions gA
+        if(RISE_gA == PIN_gB)
+            gTicks++;
+        else
+            gTicks--;
 
-       RISE_gA ^= 1; // Change le sens de sensibilité.
-       INTCONbits.INT0IF = 0;
+        RISE_gA ^= 1; // Change le sens de sensibilité.
+        INTCONbits.INT0IF = 0;
+    }
 
-   }
+    if(INTCON3bits.INT1E && INTCON3bits.INT1IF) { // Interruptions dA
+        if(RISE_dA == PIN_dB)
+            dTicks++;
+        else
+            dTicks--;
 
-   // Interruptions dA
-   if(INTCON3bits.INT1E && INTCON3bits.INT1IF)
-   {
-       if(RISE_dA == PIN_dB)
-           dTicks++;
-       else
-           dTicks--;
+        RISE_dA ^= 1; // Change le sens de sensibilité.
+        INTCON3bits.INT1IF = 0;
+    }
 
-       RISE_dA ^= 1; // Change le sens de sensibilité.
-       INTCON3bits.INT1IF = 0;
-   }
-
-   // Interruptions gB et dB
-   if(INTCONbits.RBIE && INTCONbits.RBIF)
-   {
+    if(INTCONbits.RBIE && INTCONbits.RBIF) { // Interruptions gB et dB
         char newB = PORTB;
         INTCONbits.RBIF = 0; // On autorise tôt l'interruption suivante pour ne rien rater.
 
-        if((newB ^ prevB) & 0b00010000) // front sur gB
-        {
+        if((newB ^ prevB) & 0b00010000) { // front sur gB
             if(PIN_gB == PIN_gA)
                 gTicks--;
             else
                 gTicks++;
         }
-        else if((newB ^ prevB) & 0b00100000) // front sur dB
-        {
+        else if((newB ^ prevB) & 0b00100000) { // front sur dB
             if(PIN_dB == PIN_dA)
                 dTicks--;
             else
                 dTicks++;
         }
 
-        prevB = newB; /* Sauvegarde de la valeur du PORTB */
+        prevB = newB; // Sauvegarde de la valeur du PORTB.
     }
 }
 
