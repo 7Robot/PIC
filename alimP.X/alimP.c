@@ -67,6 +67,7 @@ CANmsg message;
 CANmsg incoming;
 
 int ip = 0;
+int hh = 0;
 volatile unsigned int angle = 0 ;
 int pulse = 0 ;
 int dir = 1;
@@ -301,7 +302,7 @@ void GetData()
    position[3] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
    //position[4] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
 
-   for (int hh = 0; hh < 4; hh++)
+   for (hh = 0; hh < 4; hh++)
    {
        if(distance[hh] >= 255)
        {
