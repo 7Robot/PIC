@@ -41,9 +41,15 @@
 #define XTAL    20000000
 #define led     PORTAbits.RA5
 
-// Calibration TODO.
-#define DTHETA  (2 * 3.14159265 / 16300.) // radian
-#define DL      (51. / 7050.) // cm
+// Calibration optimiste.
+#define TICKS_PER_TURN (4 * 12 * 64) // Deux fronts * deux canaux * 12 pales * démultiplication.
+#define PI      3.14159265 // ? (sometimes written pi) is a mathematical constant that is the ratio of any Euclidean circle's circumference to its diameter.
+#define CDEG    5729.57795 // (18000 / PI) // centi-degrees
+#define ENTRAXE (211. - 15.) // Rayon de courbure pour une seule roue en mouvement (mm).
+#define RAYON   36.5 // Rayon des roues (mm).
+
+#define MM      0.0746537317 // (2.* PI * RAYON / TICKS_PER_TURN) // Multiply ticks to get millimeters.
+#define DTHETA  0.000380886386 // (MM / ENTRAXE) // Delta de theta pour un tick (rad).
 
 #define RISE_gA INTCON2bits.INTEDG0
 #define RISE_dA INTCON2bits.INTEDG1
@@ -56,27 +62,26 @@
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
+void SendPosition();
 
 /////*VARIABLES GLOBALES*/////
 int i = 0;
 
 char prevB = 0; // Valeur précédente du PORTB, pour déterminer le type de front
 
-float x = 0;
-float y = 0;
-float theta = 0;
-
-// On garde les valeurs pour le debug.
-float cosinus = 0;
-float sinus = 0;
+volatile float x = 0; // En ticks.
+volatile float y = 0; // En ticks.
+volatile float theta = 0;
 
 // Nombre de ticks à traiter (signés).
 volatile int gTicks = 0;
 volatile int dTicks = 0;
 
+char unmuted = 0; // Broadcast de la position.
+
 volatile int t = 0; // Chronomètre.
 
-//CAN
+// CAN
 CANmsg message;
 
 /////*INTERRUPTIONS*/////
@@ -123,26 +128,26 @@ void high_isr(void)
    // Interruptions gB et dB
    if(INTCONbits.RBIE && INTCONbits.RBIF)
    {
-       char newB = PORTB;
-       INTCONbits.RBIF = 0; // On autorise tôt l'interruption suivante pour ne rien rater.
+        char newB = PORTB;
+        INTCONbits.RBIF = 0; // On autorise tôt l'interruption suivante pour ne rien rater.
 
-       if((newB ^ prevB) & 0b00010000) // front sur gB
-       {
+        if((newB ^ prevB) & 0b00010000) // front sur gB
+        {
             if(PIN_gB == PIN_gA)
                 gTicks--;
             else
                 gTicks++;
-       }
-       else if((newB ^ prevB) & 0b00100000) // front sur dB
-       {
+        }
+        else if((newB ^ prevB) & 0b00100000) // front sur dB
+        {
             if(PIN_dB == PIN_dA)
                 dTicks--;
             else
                 dTicks++;
-       }
+        }
 
-       prevB = newB; /* Sauvegarde de la valeur du PORTB */
-   }
+        prevB = newB; /* Sauvegarde de la valeur du PORTB */
+    }
 }
 
 #pragma interrupt low_isr
@@ -159,66 +164,63 @@ void low_isr(void)
         led = led ^ 1;
 
         if(message.id == 513) { // odoReq
-            int data[3];
-            // TODO
-            //data[0] = x / MM;
-            //data[1] = y / MM;
-            //data[2] = theta / DEG;
-            while(!CANSendMessage(516, (BYTE*)data, 6,
-                CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
-            }
+            SendPosition();
+        }
+        else if(message.id == 514) { // odoMute
+            unmuted = 0;
+        }
+        else if(message.id == 515) { // odoUnmute
+            unmuted = 1;
+        }
+        else if(message.id == 517) { // odoSet
+            x = ((int*)message.data)[0] / MM; // TODO (float)?
+            y = ((int*)message.data)[1] / MM;
+            theta = ((unsigned int*)message.data)[2] / CDEG;
         }
         else {
             led = led ^ 1; // On annule la commutation précédente de la LED.
         }
-        // 514 odoMute
-        // 515 odoUnmute
-        // 516 odoPosition
-        // 517 odoSet
 
         PIR3bits.RXB0IF = 0;
     }
-}
 
+    if(INTCONbits.TMR0IE && INTCONbits.TMR0IF)
+    {
+        INTCONbits.TMR0IF = 0;
 
-void calibration()
-{
-    /*
-     * Utilisation : dans le main.
-     * x prend le nombre algébrique de ticks de gauche, y ceux de droite.
-     * Pour calibrer DL faire la moyenne de x et y sur une distance de 50cm
-     * Pour calibrer DTHETA faire un tour complet sur une roue avec l'autre immobile
-     */
-    while(1) {
-        x -= gTicks;
-        gTicks = 0;
-        y += dTicks;
-        dTicks = 0;
-
-        while(gTicks == 0 && dTicks == 0)
-        {} // On attend un tick à traiter.
+        if(unmuted) {
+            SendPosition();
+        }
     }
 }
 
+volatile float f;
 /////*PROGRAMME PRINCIPAL*/////
 void main (void) {
+    float cosinus = 1;
+    float sinus = 0;
+
     // Initialisations.
     ADCON1 = 0x0F;
     ADCON0 = 0;
     WDTCON = 0;
 
     // Configurations.
-    TRISA = 0b11011111; // TODO par maxime: vérifier (il y avait un 0x1101...)
-    TRISB = 0xFF;
-    PORTC = 0xFF;
+    TRISA = 0b11011111;
+    TRISB = 0b11111111;
+    PORTC = 0b11111111;
 
     // Interruptions du PORTB (haute priorité par défaut).
     OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
     OpenRB1INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
     OpenPORTB(PORTB_CHANGE_INT_ON & PORTB_PULLUPS_OFF);
+    prevB = PORTB;
 
     // Timer0 pour chronométrer les opérations flottantes.
-    OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
+    //OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
+    // Timer0 pour TODO
+    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_64); // 38Hz TODO
+    INTCON2bits.TMR0IP = 0; // priorité basse, car les pulses sonars prennent du temps
 
 
     // Configuration du CAN.
@@ -232,7 +234,6 @@ void main (void) {
     CANSetFilter(CAN_FILTER_B1_F2, 0b01000000000, CAN_CONFIG_STD_MSG);
     // Set CAN module into Normal mode.
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
-
 
     // Interruption Buffer 0.
     IPR3bits.RXB0IP = 0; // Priorité basse.
@@ -251,12 +252,9 @@ void main (void) {
         DelayMS(50);
     }
 
-    
-    //calibration();
-
     while(1) {
         int gTicksTmp, dTicksTmp;
-        float distance;
+        int distance;
 
         gTicksTmp = gTicks;
         gTicks = 0; // Viiiite.
@@ -265,7 +263,7 @@ void main (void) {
 
         theta -= (dTicksTmp + gTicksTmp) * DTHETA;
 
-        distance = (gTicksTmp - dTicksTmp) * DL;
+        distance = gTicksTmp - dTicksTmp; // En double ticks.
         x += distance * cosinus;
         y += distance * sinus;
 
@@ -288,4 +286,18 @@ void main (void) {
 // 249 cycles pour une multiplication
 // 1 / 5e6 * 1054 = 0.0002108s temps pour un cos et un sin
 // 1 / 30 / 80    = 0.0004166s temps entre deux tics
+}
+
+
+void SendPosition() { // Utilisé en réponse à odoReq et dans l'autosend.
+    int data[3];
+    long thetaCentiDegrees = theta * CDEG; // Risque d'under/overflow avec un unsigned int.
+
+    data[0] = (int)(x * MM / 2.);
+    data[1] = (int)(y * MM / 2.);
+    ((unsigned int*)data)[2] = (unsigned int)(((thetaCentiDegrees % 36000)+36000)%36000); // Modulo négatif...
+
+    while(!CANSendMessage(516, (BYTE*)data, 6, // 516 odoPosition
+        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
+    }
 }
