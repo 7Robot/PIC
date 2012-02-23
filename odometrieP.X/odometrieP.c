@@ -80,6 +80,8 @@ volatile int dTicks = 0;
 char unmuted = 0; // Broadcast de la position.
 
 volatile int t = 0; // Chronomètre.
+int data[3]; 
+
 
 // CAN
 CANmsg message;
@@ -173,9 +175,18 @@ void low_isr(void)
             unmuted = 1;
         }
         else if(message.id == 517) { // odoSet
-            x = ((int*)message.data)[0] / MM; // TODO (float)?
-            y = ((int*)message.data)[1] / MM;
-            theta = ((unsigned int*)message.data)[2] / CDEG;
+            if(message.len == 0)
+            {
+                x=0;
+                y=0;
+                theta=0;
+            }
+            else
+            {
+                x = ((int*)message.data)[0] / MM; // TODO (float)?
+                y = ((int*)message.data)[1] / MM; // Fais gaffe message.data est un char !
+                theta = ((unsigned int*)message.data)[2] / CDEG;
+            }
         }
         else {
             led = led ^ 1; // On annule la commutation précédente de la LED.
@@ -189,6 +200,7 @@ void low_isr(void)
         INTCONbits.TMR0IF = 0;
 
         if(unmuted) {
+            led = led^1;
             SendPosition();
         }
     }
@@ -256,23 +268,27 @@ void main (void) {
         int gTicksTmp, dTicksTmp;
         int distance;
 
+        led = led^1;
         gTicksTmp = gTicks;
         gTicks = 0; // Viiiite.
         dTicksTmp = dTicks;
         dTicks = 0; // Viiiite.
 
-        theta -= (dTicksTmp + gTicksTmp) * DTHETA;
+        theta -= (dTicksTmp + gTicksTmp)*DTHETA;
+       
 
         distance = gTicksTmp - dTicksTmp; // En double ticks.
-        x += distance * cosinus;
-        y += distance * sinus;
+        x += distance * cos(theta);
+        y += distance * sin(theta);
 
-        cosinus = cos(theta); // 534 cycles pour 0
-        sinus = sin(theta); // 520 cycles pour 0
+        //cosinus = cos(theta); // 534 cycles pour 0
+        //sinus = sin(theta); // 520 cycles pour 0
 
         while(gTicks == 0 && dTicks == 0)
         {} // On attend un tick à traiter.
     }
+
+
 
 
 //    while(1) {
@@ -290,12 +306,15 @@ void main (void) {
 
 
 void SendPosition() { // Utilisé en réponse à odoReq et dans l'autosend.
-    int data[3];
-    long thetaCentiDegrees = theta * CDEG; // Risque d'under/overflow avec un unsigned int.
+    //int data[3]; en global pour debug
+    int thetaCentiDegrees = theta;
+    
 
     data[0] = (int)(x * MM / 2.);
     data[1] = (int)(y * MM / 2.);
-    ((unsigned int*)data)[2] = (unsigned int)(((thetaCentiDegrees % 36000)+36000)%36000); // Modulo négatif...
+    ((unsigned int*)data)[2] = (unsigned int)(((thetaCentiDegrees % 360)+360)%360); // Modulo négatif...
+
+   
 
     while(!CANSendMessage(516, (BYTE*)data, 6, // 516 odoPosition
         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {

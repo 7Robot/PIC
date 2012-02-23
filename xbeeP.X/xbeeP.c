@@ -104,14 +104,22 @@ void high_isr(void)
         else if(Rstate == attenteSize)
         {
             umessage.len = (incoming & 0xF0) >> 4; //TESTER 0 ET LEN
+            umessage.id =0;
             ((char*)&umessage.id)[1] = incoming & 0b00000111;
             Rstate = attenteIdL;
         }
         else if(Rstate == attenteIdL)
         {
             *(char*)&umessage.id = incoming ;
-            Rstate = collecteData;
-            rescp = 0;
+            if(umessage.len==0)
+            {
+                Rstate = verifBF;
+            }
+            else
+            {
+                Rstate = collecteData;
+                rescp = 0;
+            }
         }
         else if(Rstate == collecteData)
         {

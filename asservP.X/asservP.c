@@ -319,10 +319,21 @@ void low_isr(void)
                     case 1025: //Consigne ligne
                         resetTicks();
                         mode = 1;
+                        //Dégueu mais marche
                         convi = 0;
-                        convi = (unsigned char) message.data[0]; //Poid des bits inversé
-                        convi = convi << 8;
-                        convi |= (unsigned char) message.data[1];
+                        convi |= message.data[0]; //Poid des bits inversé
+                        if(message.data[0]< 0)
+                        {
+                            convi--;
+                            convi = convi << 8 ;
+                            convi |= 0xFF^message.data[1];
+                            convi++;
+                        }
+                        else
+                        {
+                            convi = convi << 8 ;
+                            convi |= message.data[1];
+                        }
                         Rconsigne = convi; // Permet de gérer le signe
                        
                       break;
@@ -330,10 +341,21 @@ void low_isr(void)
                     case 1026: //Consigne rotation
                         resetTicks();
                         mode = -1;
+                        //Dégueu mais marche
                         convi = 0;
-                        convi = (unsigned char) message.data[0]; //Poid des bits inversé
-                        convi = convi << 8;
-                        convi |= (unsigned char) message.data[1];
+                        convi |= message.data[0]; //Poid des bits inversé
+                        if(message.data[0]< 0)
+                        {
+                            convi--;
+                            convi = convi << 8 ;
+                            convi |= 0xFF^message.data[1];
+                            convi++;
+                        }
+                        else
+                        {
+                            convi = convi << 8 ;
+                            convi |= message.data[1];
+                        }
                         Rconsigne = convi; // Permet de gérer le signe
                       break;
 
