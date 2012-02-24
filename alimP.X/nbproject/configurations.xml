@@ -26,7 +26,6 @@
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
                    projectFiles="false">
-      <itemPath>Makefile</itemPath>
     </logicalFolder>
   </logicalFolder>
   <projectmakefile>Makefile</projectmakefile>
@@ -39,7 +38,7 @@
         <platformTool>PICkit3PlatformTool</platformTool>
         <languageToolchain>C18</languageToolchain>
         <languageToolchainVersion>3.37</languageToolchainVersion>
-        <platform>4</platform>
+        <platform>2</platform>
       </toolsSet>
       <compileType>
         <linkerTool>
@@ -54,8 +53,7 @@
         <makeCustomizationPostStep></makeCustomizationPostStep>
         <makeCustomizationAlternativeFileToLoadEnabled>false</makeCustomizationAlternativeFileToLoadEnabled>
         <makeCustomizationAlternativeFileToLoad></makeCustomizationAlternativeFileToLoad>
-        <makeCustomizationUseOfUserID>makeCustomizationUseOfUserID</makeCustomizationUseOfUserID>
-        <makeCustomizationUserID>makeCustomizationUserID</makeCustomizationUserID>
+        <makeCustomizationPutChecksumInUserID>false</makeCustomizationPutChecksumInUserID>
       </makeCustomizationType>
       <C18>
       </C18>
