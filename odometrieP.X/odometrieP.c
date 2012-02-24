@@ -232,6 +232,7 @@ void main (void) {
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Buffer 1 Mask value.
     CANSetMask(CAN_MASK_B1, 0b01000000000, CAN_CONFIG_STD_MSG);
+    CANSetMask(CAN_MASK_B2, 0xFFFFFF, CAN_CONFIG_STD_MSG);
     // Set Buffer 1 Filter values.
     CANSetFilter(CAN_FILTER_B1_F1, 0b01000000000, CAN_CONFIG_STD_MSG);
     CANSetFilter(CAN_FILTER_B1_F2, 0b01000000000, CAN_CONFIG_STD_MSG);
