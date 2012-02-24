@@ -69,9 +69,15 @@ int i = 0;
 
 char prevB = 0; // Valeur précédente du PORTB, pour déterminer le type de front
 
+// Pour initialiser : Odoset
+// x = -2000 + 250 = 0x6D6
+// y = -1500 + 250 = 0x4E2
+// theta = 9000 = 0x2328
+// 517   214 6   226 4   40 35
+
 volatile float x = 0; // En ticks.
 volatile float y = 0; // En ticks.
-volatile float theta = 0;
+volatile int theta = 0; // En ticks.
 
 // Nombre de ticks à traiter (signés).
 volatile int gTicks = 0;
@@ -80,7 +86,6 @@ volatile int dTicks = 0;
 char unmuted = 0; // Broadcast de la position.
 
 volatile int t = 0; // Chronomètre.
-int data[3]; 
 
 
 // CAN
@@ -147,8 +152,7 @@ void high_isr(void)
 void low_isr(void)
 {
     // Réception CAN.
-    if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
-    {
+    if(PIE3bits.RXB0IE && PIR3bits.RXB0IF) {
         while(CANIsRxReady()) {
             CANReceiveMessage(&message.id, message.data,
                               &message.len, &message.flags);
@@ -166,17 +170,15 @@ void low_isr(void)
             unmuted = 1;
         }
         else if(message.id == 517) { // odoSet
-            if(message.len == 0)
-            {
-                x=0;
-                y=0;
-                theta=0;
+            if(message.len == 0) { // Par défaut 0 0 0 0 0 0.
+                x = 0;
+                y = 0;
+                theta = 0;
             }
-            else
-            {
-                x = ((int*)message.data)[0] / MM; // TODO (float)?
-                y = ((int*)message.data)[1] / MM; // Fais gaffe message.data est un char !
-                theta = ((unsigned int*)message.data)[2] / CDEG;
+            else {
+                x = (float)(((int*)message.data)[0] << 1) / MM;
+                y = (float)(((int*)message.data)[1] << 1) / MM;
+                theta = (int)(((unsigned int*)message.data)[2] / CDEG / DTHETA);
             }
         }
         else {
@@ -186,12 +188,11 @@ void low_isr(void)
         PIR3bits.RXB0IF = 0;
     }
 
-    if(INTCONbits.TMR0IE && INTCONbits.TMR0IF)
-    {
+    if(INTCONbits.TMR0IE && INTCONbits.TMR0IF) {
         INTCONbits.TMR0IF = 0;
 
         if(unmuted) {
-            led = led^1;
+            led = led ^ 1;
             SendPosition();
         }
     }
@@ -219,11 +220,9 @@ void main (void) {
     OpenPORTB(PORTB_CHANGE_INT_ON & PORTB_PULLUPS_OFF);
     prevB = PORTB;
 
-    // Timer0 pour chronométrer les opérations flottantes.
-    //OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
-    // Timer0 pour TODO
-    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_64); // 38Hz TODO
-    INTCON2bits.TMR0IP = 0; // priorité basse, car les pulses sonars prennent du temps
+    // Timer0 pour le broadcast de l'odométrie.
+    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_8); // 8 * 2^16 / 5e6 = 0.104 fois par seconde
+    INTCON2bits.TMR0IP = 0; // Priorité basse, car ce n'est pas critique.
 
 
     // Configuration du CAN.
@@ -260,52 +259,49 @@ void main (void) {
         int gTicksTmp, dTicksTmp;
         int distance;
 
-        led = led^1;
         gTicksTmp = gTicks;
         gTicks = 0; // Viiiite.
         dTicksTmp = dTicks;
         dTicks = 0; // Viiiite.
 
-        theta -= (dTicksTmp + gTicksTmp)*DTHETA;
-       
+        theta -= dTicksTmp + gTicksTmp;
 
         distance = gTicksTmp - dTicksTmp; // En double ticks.
-        x += distance * cos(theta);
-        y += distance * sin(theta);
+        x += distance * cosinus;
+        y += distance * sinus;
 
-        //cosinus = cos(theta); // 534 cycles pour 0
-        //sinus = sin(theta); // 520 cycles pour 0
+        cosinus = cos(theta * DTHETA); // 534 cycles pour 0
+        sinus = sin(theta * DTHETA); // 520 cycles pour 0
 
         while(gTicks == 0 && dTicks == 0)
         {} // On attend un tick à traiter.
     }
+    
+    // Timer0 pour chronométrer les opérations flottantes.
+    //    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
+    //    while(1) {
+    //        cosinus = cos(theta); // 534 cycles pour 0
+    //        sinus = sin(theta); // 520 cycles pour 0
+    //        t = ReadTimer0() - 18;
+    //        Nop();
+    //        theta += 0.1;
+    //    }
 
-
-
-
-//    while(1) {
-//        cosinus = cos(theta); // 534 cycles pour 0
-//        sinus = sin(theta); // 520 cycles pour 0
-//        t = ReadTimer0() - 18;
-//        Nop();
-//        theta += 0.1;
-//    }
-
-// 249 cycles pour une multiplication
-// 1 / 5e6 * 1054 = 0.0002108s temps pour un cos et un sin
-// 1 / 30 / 80    = 0.0004166s temps entre deux tics
+    // 249 cycles pour une multiplication
+    // 1 / 5e6 * 1054 = 0.0002108s temps pour un cos et un sin
+    // 1 / 30 / 80    = 0.0004166s temps entre deux tics
 }
 
 
 void SendPosition() { // Utilisé en réponse à odoReq et dans l'autosend.
-    //int data[3]; en global pour debug
-    int thetaCentiDegrees = theta;
+    int data[3];
+
+    long thetaCentiDegrees = theta * DTHETA * CDEG; // Risque d'under/overflow avec un unsigned int.
     
 
     data[0] = (int)(x * MM / 2.);
     data[1] = (int)(y * MM / 2.);
-    ((unsigned int*)data)[2] = (unsigned int)(((thetaCentiDegrees % 360)+360)%360); // Modulo négatif...
-
+    ((unsigned int*)data)[2] = (unsigned int)(((thetaCentiDegrees % 36000) + 36000) % 36000); // Contournement du modulo négatif.
    
 
     while(!CANSendMessage(516, (BYTE*)data, 6, // 516 odoPosition
