@@ -54,19 +54,19 @@ OS_CURRENT="$(shell uname -s)"
 # If you open this project with MPLAB X in the new host, this         #
 # makefile will be regenerated and the paths will be corrected.       #
 #######################################################################
-MP_CC="/Applications/microchip/mplabc18/v3.37/bin/mcc18"
+MP_CC="/Applications/microchip/mplabc18/v3.40/bin/mcc18"
 # MP_BC is not defined
-MP_AS="/Applications/microchip/mplabc18/v3.37/bin/../mpasm/MPASMWIN"
-MP_LD="/Applications/microchip/mplabc18/v3.37/bin/mplink"
-MP_AR="/Applications/microchip/mplabc18/v3.37/bin/mplib"
+MP_AS="/Applications/microchip/mplabc18/v3.40/bin/../mpasm/MPASMWIN"
+MP_LD="/Applications/microchip/mplabc18/v3.40/bin/mplink"
+MP_AR="/Applications/microchip/mplabc18/v3.40/bin/mplib"
 DEP_GEN=${MP_JAVA_PATH}java -jar "/Applications/microchip/mplabx/mplab_ide.app/Contents/Resources/mplab_ide/mplab_ide/modules/../../bin/extractobjectdependencies.jar" 
 # fixDeps replaces a bunch of sed/cat/printf statements that slow down the build
 FIXDEPS=fixDeps
-MP_CC_DIR="/Applications/microchip/mplabc18/v3.37/bin"
+MP_CC_DIR="/Applications/microchip/mplabc18/v3.40/bin"
 # MP_BC_DIR is not defined
-MP_AS_DIR="/Applications/microchip/mplabc18/v3.37/bin/../mpasm"
-MP_LD_DIR="/Applications/microchip/mplabc18/v3.37/bin"
-MP_AR_DIR="/Applications/microchip/mplabc18/v3.37/bin"
+MP_AS_DIR="/Applications/microchip/mplabc18/v3.40/bin/../mpasm"
+MP_LD_DIR="/Applications/microchip/mplabc18/v3.40/bin"
+MP_AR_DIR="/Applications/microchip/mplabc18/v3.40/bin"
 # MP_BC_DIR is not defined
 
 .build-conf:  ${BUILD_SUBPROJECTS}
