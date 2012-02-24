@@ -59,8 +59,8 @@ char us0_unmuted = 0; // Broadcast de la distance.
 char us1_unmuted = 0;
 unsigned int us0_pulse_start; // Ticks comptés depuis le début de l'echo.
 unsigned int us1_pulse_start;
-unsigned int us0_threshold = 0x500; // Seuil par défaut (0 = désactivé).
-unsigned int us1_threshold = 0x500;
+unsigned int us0_threshold = 0; // Seuil par défaut (0 = désactivé).
+unsigned int us1_threshold = 0;
 int us0_echo = 0x7FFF; // On commence avec des echos à la valeur maxi.
 int us1_echo = 0x7FFF;
 

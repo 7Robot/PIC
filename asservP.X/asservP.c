@@ -55,7 +55,7 @@ void resetTicks(void);
 /////*CONSTANTES*/////
 #define FCY 16000000 // Fréquence d'exécution des instructions = 4*16Mhz/4 = 16MHz.
 
-#define led PORTAbits.RA5
+#define led LATAbits.LATA5
 
 
 #define in1  LATCbits.LATC5
@@ -103,7 +103,8 @@ int Emax = 0; // Erreur maxi pour réglages.
 
 // Variables asserv position P.
 long r = 0; // Position rectiligne ou angulaire.
-long Rconsigne = 0, Eposition = 0; // Consigne et erreur de position (anglulaire ou rectiligne).
+int Rconsigne = 0;
+long Eposition = 0; // Consigne et erreur de position (anglulaire ou rectiligne).
 char mode = 0; // Mode de fonctionnement 0:off, 1:ligne, -1:rotation.
 BYTE residu = 0; // Erreur résiduelle
 int convi = 0;
@@ -150,9 +151,9 @@ void high_isr(void) {
 
     if (INTCON3bits.INT1E && INTCON3bits.INT1IF) { // Interruptions dA
         if (riseDchA == DchB)
-            dTicks++;
-        else
             dTicks--;
+        else
+            dTicks++;
 
         riseDchA ^= 1; // Change le sens de sensibilité.
         INTCON3bits.INT1IF = 0;
@@ -169,9 +170,9 @@ void high_isr(void) {
                 gTicks++;
         } else if ((newB ^ prevB) & 0b00100000) { // front sur dB
             if (DchB == DchA)
-                dTicks--;
-            else
                 dTicks++;
+            else
+                dTicks--;
         }
 
         prevB = newB; // Sauvegarde de la valeur du PORTB.
@@ -267,12 +268,14 @@ void low_isr(void) {
         if (mode == 2) {
             if (dConsigne < dVFinale) {
                 dConsigne++;
-            } else if (dConsigne > dVFinale) {
+            }
+            else if (dConsigne > dVFinale) {
                 dConsigne--;
             }
             if (gConsigne < gVFinale) {
                 gConsigne++;
-            } else if (gConsigne > gVFinale) {
+            }
+            else if (gConsigne > gVFinale) {
                 gConsigne--;
             }
         }
@@ -291,7 +294,7 @@ void low_isr(void) {
         switch (message.id) {
             case 1029: // Consigne en vitesse
                 mode = 0;
-                Vconsigne(message.data[0], message.data[1]);
+                Vconsigne(((char*)&message.data)[0], ((char*)&message.data)[1]);
                 break;
 
             case 1032: // Changement de vitesse par rampe
@@ -299,8 +302,8 @@ void low_isr(void) {
                 if (mode != 2) {
                     resetTicks();
                 }
-                gVFinale = message.data[0];
-                dVFinale = message.data[1];
+                gVFinale = ((char*)&message.data)[0];
+                dVFinale = ((char*)&message.data)[1];
                 if (gVFinale > Vmax)
                     gVFinale = Vmax;
                 else if (gVFinale < -Vmax)
@@ -314,38 +317,13 @@ void low_isr(void) {
             case 1025: // Consigne ligne
                 resetTicks();
                 mode = 1;
-                // Dégueu mais marche
-                convi = 0;
-                convi |= message.data[0]; // Poid des bits inversé
-                if (message.data[0] < 0) {
-                    convi--;
-                    convi = convi << 8;
-                    convi |= 0xFF^message.data[1];
-                    convi++;
-                } else {
-                    convi = convi << 8;
-                    convi |= message.data[1];
-                }
-                Rconsigne = convi; // Permet de gérer le signe
-
+                Rconsigne = ((int*)&message.data)[0];
                 break;
 
             case 1026: // Consigne rotation
                 resetTicks();
                 mode = -1;
-                // Dégueu mais marche
-                convi = 0;
-                convi |= message.data[0]; // Poid des bits inversé
-                if (message.data[0] < 0) {
-                    convi--;
-                    convi = convi << 8;
-                    convi |= 0xFF^message.data[1];
-                    convi++;
-                } else {
-                    convi = convi << 8;
-                    convi |= message.data[1];
-                }
-                Rconsigne = convi; // Permet de gérer le signe
+                Rconsigne = ((int*)&message.data)[0];
                 break;
 
             case 1030: // Marche
@@ -444,7 +422,6 @@ void main(void) {
 
 
     while (1);
-
 }
 
 ///// Définition des fonctions du programme. /////
