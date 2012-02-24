@@ -4,7 +4,6 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
-      <itemPath>/media/Données/Documents/7robot/PIC/libcan/can18xx8.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LibraryFiles"
                    displayName="Library Files"
@@ -39,8 +38,8 @@
         <targetHeader></targetHeader>
         <platformTool>PICkit3PlatformTool</platformTool>
         <languageToolchain>C18</languageToolchain>
-        <languageToolchainVersion>3.40</languageToolchainVersion>
-        <platform>2</platform>
+        <languageToolchainVersion>3.37</languageToolchainVersion>
+        <platform>4</platform>
       </toolsSet>
       <compileType>
         <linkerTool>
@@ -55,8 +54,8 @@
         <makeCustomizationPostStep></makeCustomizationPostStep>
         <makeCustomizationAlternativeFileToLoadEnabled>false</makeCustomizationAlternativeFileToLoadEnabled>
         <makeCustomizationAlternativeFileToLoad></makeCustomizationAlternativeFileToLoad>
-        <makeCustomizationUseOfUserID>NONE</makeCustomizationUseOfUserID>
-        <makeCustomizationUserID></makeCustomizationUserID>
+        <makeCustomizationUseOfUserID>makeCustomizationUseOfUserID</makeCustomizationUseOfUserID>
+        <makeCustomizationUserID>makeCustomizationUserID</makeCustomizationUserID>
       </makeCustomizationType>
       <C18>
       </C18>
