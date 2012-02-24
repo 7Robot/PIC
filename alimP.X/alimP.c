@@ -224,6 +224,12 @@ void WriteAngle(int a)
 {
     angle = a;
     WriteTimer0(0); /*On initialise TMR1*/
+
+    for (ip = 0; ip < 20; ip++)
+    {
+        timeData[ip] = 0;
+    }
+
     ip = 0; /*On initialise le tableau timeData[] sur la premiËre case*/
     T0CONbits.TMR0ON = 1; /*On dÈmarre le TMR0 pour le tableau timeData[]*/
 }
@@ -231,8 +237,11 @@ void WriteAngle(int a)
 void GetData()
 {
    T0CONbits.TMR0ON = 0;
+   
    nbrepoint = ip;
-
+//   nbrepoint = 2;
+//   timeData[0] = 26500;
+//   timeData[1] = 36500;
    pointMin[0] = timeData[0];
    pointMax[0] = timeData[1];
 
@@ -291,6 +300,9 @@ void GetData()
             }
         }
     }
+
+
+
    distance[0] = 6.7/(2*omega*temps[0]*0.000001/2); //distance en cm
    distance[1] = 6.7/(2*omega*temps[1]*0.000001/2); //distance en cm
    distance[2] = 6.7/(2*omega*temps[2]*0.000001/2); //distance en cm
@@ -309,28 +321,28 @@ void GetData()
            position[hh] = 180 - position[hh];
        }
    }
-   position[4] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
+   //position[4] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
 
-   for (hh = 0; hh < 4; hh++)
-   {
-       if(distance[hh] >= 255)
-       {
-           distance[hh] = 255;
-       }
-       if(position[hh] >= 180)
-       {
-           distance[hh] = 255;
-       }
-   }
+//   for (hh = 0; hh < 4; hh++)
+//   {
+//       if(distance[hh] >= 255)
+//       {
+//           distance[hh] = 255;
+//       }
+//       if(position[hh] >= 180)
+//       {
+//           distance[hh] = 255;
+//       }
+//   }
 
-   if (position[1] == position[0])
-       nbreBalises = 1;
-   else if (position[2] == position[1])
-       nbreBalises = 2;
-   else if (position[2] == position[3])
-       nbreBalises = 3;
-   else
-       nbreBalises = 4;
+//   if (position[1] == position[0])
+//       nbreBalises = 1;
+//   else if (position[2] == position[1])
+//       nbreBalises = 2;
+//   else if (position[2] == position[3])
+//       nbreBalises = 3;
+//   else
+//       nbreBalises = 4;
 
    message.data[0] = (char)distance[0];
    message.data[1] = (char)position[0];
