@@ -20,6 +20,7 @@
 #include <usart.h>
 #include <delays.h>
 #include <portb.h>
+#include <adc.h>
 #include "../libcan/can18xx8.h"
 
 /////*CONFIGURATION*/////
@@ -52,17 +53,31 @@ int i;
 char bump_back = 0; // Enfoncement du capteur.
 char bum_front = 0;
 
-// Variables des deux sonars.
-char us0_underthres = 0; // Sur ou sous le seuil.
+// Valeur de sonar sur ou sous le seuil.
+char us0_underthres = 0;
 char us1_underthres = 0;
-char us0_unmuted = 0; // Broadcast de la distance.
-char us1_unmuted = 0;
-unsigned int us0_pulse_start; // Ticks comptés depuis le début de l'echo.
+
+// Ticks comptés depuis le début de l'echo.
+unsigned int us0_pulse_start;
 unsigned int us1_pulse_start;
-unsigned int us0_threshold = 0; // Seuil par défaut (0 = désactivé).
+
+// On commence avec les valeurs maximum.
+int us0_value = 0x7FFF;
+int us1_value = 0x7FFF;
+BYTE sharp_values[4] = {255, 255, 255, 255};
+
+// Le sharp en cours de lecture (0 à 3).
+char adc_channel = 0;
+
+// Seuil par défaut (0 = désactivé).
+unsigned int us0_threshold = 0;
 unsigned int us1_threshold = 0;
-int us0_echo = 0x7FFF; // On commence avec des echos à la valeur maxi.
-int us1_echo = 0x7FFF;
+
+// Broadcast désactivé par défaut.
+char us0_unmuted = 0;
+char us1_unmuted = 0;
+char sharp_unmuted[4] = {0, 1, 0, 0};
+
 
 
 /////*INTERRUPTIONS*/////
@@ -92,18 +107,18 @@ void high_isr(void)
         }
         else { // Fin du pulse.
             char passage;
-            us0_echo = time - us0_pulse_start;
+            us0_value = time - us0_pulse_start;
             // marche aussi si le timer a débordé car non signé
 
-            if((us0_echo < us0_threshold) != us0_underthres) // passage d'un coté ou de l'autre du seuil
+            if((us0_value < us0_threshold) != us0_underthres) // passage d'un coté ou de l'autre du seuil
                 passage = 0x2; // décalé d'un bit pour pouvoir faire un ET dans l'id direct
             else
                 passage = 0;
 
             if(us0_unmuted || passage)
             {
-                us0_underthres = (us0_echo < us0_threshold); // nouveau coté du seuil
-                while(!CANSendMessage(320 | us0_underthres | passage, (BYTE*)&us0_echo, 2,
+                us0_underthres = (us0_value < us0_threshold); // nouveau coté du seuil
+                while(!CANSendMessage(320 | us0_underthres | passage, (BYTE*)&us0_value, 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
                 }
                 led = led^1;
@@ -123,21 +138,21 @@ void high_isr(void)
         }
         else { // Fin du pulse.
             char passage;
-            us1_echo = time - us1_pulse_start;
+            us1_value = time - us1_pulse_start;
             // marche aussi si le timer a débordé car non signé
 
-            if((us1_echo < us1_threshold) != us1_underthres) // passage d'un coté ou de l'autre du seuil
+            if((us1_value < us1_threshold) != us1_underthres) // passage d'un coté ou de l'autre du seuil
                 passage = 0x2; // décalé d'un bit pour pouvoir faire un ET dans l'id direct
             else
                 passage = 0;
 
             if(us1_unmuted || passage)
             {
-                us1_underthres = (us1_echo < us1_threshold); // nouveau coté du seuil
-                while(!CANSendMessage(352 | us1_underthres | passage, (BYTE*)&us1_echo, 2,
+                us1_underthres = (us1_value < us1_threshold); // nouveau coté du seuil
+                while(!CANSendMessage(352 | us1_underthres | passage, (BYTE*)&us1_value, 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
                 }
-                led = led^1;
+                led = led ^ 1;
             }
 
             INTCON3bits.INT1E = 0; // Fin de la mesure.
@@ -165,12 +180,12 @@ void low_isr(void)
         led = led ^ 1;
         
         if(id == 324) { // sonar1Req
-            while(!CANSendMessage(320 | us0_underthres, (BYTE*)&us0_echo, 2,
+            while(!CANSendMessage(320 | us0_underthres, (BYTE*)&us0_value, 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
         }
         else if(id == 356) { // sonar2Req
-            while(!CANSendMessage(352 | us1_underthres, (BYTE*)&us1_echo, 2,
+            while(!CANSendMessage(352 | us1_underthres, (BYTE*)&us1_value, 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
         }
@@ -186,11 +201,14 @@ void low_isr(void)
         else if(id == 365) { // sonar2Unmute
             us1_unmuted = 1;
         }
-        else if(id == 328 && len == 2) { // sonar1Thres
-            us0_threshold = ((unsigned int*) data)[0];
+        else if(312 <= id && id <= 319) { // sharp Mute/Unmute
+            sharp_unmuted[id >> 1 & 3] = id & 1;
         }
-        else if(id == 360 && len == 2) { // sonar2Thres
-            us1_threshold = ((unsigned int*) data)[0];
+        else if(304 <= id && id <= 310 && !(id & 1)) { // sharpReq
+            i = id >> 1 & 3;
+            while(!CANSendMessage(272 | i << 1, &sharp_values[i], 1, // TODO : seuils
+                    CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
+            }
         }
         else {
             led = led ^ 1; // On annule la commutation précédente de la LED.
@@ -203,18 +221,18 @@ void low_isr(void)
     {
         INTCONbits.TMR0IF = 0;
 
-        if(PORTCbits.RC2 == bum_front) // Evenement sur bouton avant.
+        if(PORTCbits.RC2 == bum_front) // Évènement sur bouton avant.
         {
             bum_front = !PORTCbits.RC2;
-            led = led^1;
+            led = led ^ 1;
             while(!CANSendMessage(256 | bum_front,NULL, 0, /* ou 257 */
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
         }
-        if(PORTCbits.RC3 == bump_back) // Evenement sur bouton arriere.
+        if(PORTCbits.RC3 == bump_back) // Évènement sur bouton arriere.
         {
             bump_back = !PORTCbits.RC3;
-            led = led^1;
+            led = led ^ 1;
             while(!CANSendMessage(258 | bump_back, NULL, 0, /* ou 259 */
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
@@ -237,6 +255,36 @@ void low_isr(void)
             INTCON3bits.INT1IE = 1;
         }
         // Début de l'attente des echos.
+
+        // On démarre la première conversion analogique (Sharp 1).
+        SetChanADC(ADC_CH0);
+        adc_channel = 0;
+        ConvertADC();
+    }
+
+    // Lecture de l'ADC et passage à la mesure suivante.
+    if(PIE1bits.ADIE && PIR1bits.ADIF)
+    {
+        BYTE data[2];
+        ((int*)data)[0] = ReadADC();
+
+        sharp_values[adc_channel] = ADRESH; // TODO : pré-traitement
+
+        if(sharp_unmuted[adc_channel] && i++ % 4 == 0) {
+            // TODO : gérer seuils
+            while(!CANSendMessage(272 | adc_channel << 1, &sharp_values[adc_channel], 1,
+                    CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
+            }
+            led = led ^ 1;
+        }
+
+        PIR1bits.ADIF = 0;
+        adc_channel++;
+
+        if(adc_channel < 4) { // Lancement de la conversion suivante.
+            ADCON0bits.CHS = adc_channel; // Plus simple que SetChanADC().
+            ConvertADC();
+        }
     }
 }
 
@@ -259,10 +307,24 @@ void main (void) {
     // Il faut laisser 50ms (20Hz) entre deux débordements (limite des sonars).
     // Mais on alterne les salves donc 38Hz est parfait.
     // Du coup on ne vérifie pas les boutons plus souvent, mais pas grave.
+    // Les sharps actualisent leur valeur toutes les 40ms, mais on va les
+    // échantillonner plus vite (38Hz), tant mieux si on choppe les nouvelles
+    // valeurs rapidement.
 
     // Interruptions sur les pins "Echo output" des sonars (AN0 et AN1).
     // OpenRBxINT faits à la main (sauf pullup, par défaut).
 
+    OpenADC(ADC_FOSC_4 // Tosc < 5.7 MHz.
+            & ADC_LEFT_JUST // On pourra ignorer l'octet de poid faible (2 bits non nuls).
+            & ADC_20_TAD, // 15µs * 5 MHz / 4 [cf ci-dessus] = 18.75 Tosc
+            ADC_CH0 // Changé par le timer de toute façon.
+            & ADC_INT_ON & ADC_VREFPLUS_VDD & ADC_VREFMINUS_VSS,
+            0b00001011); // Pins analogiques pour AN0 à AN3.
+
+    // Interruption ADC.
+    IPR1bits.ADIP = 0; // Priorité basse.
+    PIE1bits.ADIE = 1; // Activée.
+    PIR1bits.ADIF = 0;
 
     // Configuration du CAN.
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
@@ -270,12 +332,12 @@ void main (void) {
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Buffer 1 Mask value.
     CANSetMask(CAN_MASK_B1, 0b00100000000, CAN_CONFIG_STD_MSG);
-    // Set Buffer 1 Filter values.
+    CANSetMask(CAN_MASK_B2, 0xFFFFFF, CAN_CONFIG_STD_MSG);
+    // Set Buffer 1 filter values.
     CANSetFilter(CAN_FILTER_B1_F1, 0b00100000000, CAN_CONFIG_STD_MSG);
     CANSetFilter(CAN_FILTER_B1_F2, 0b00100000000, CAN_CONFIG_STD_MSG);
     // Set CAN module into Normal mode.
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
-
 
     // Interruption Buffer 0.
     IPR3bits.RXB0IP = 0; // Priorité basse.
