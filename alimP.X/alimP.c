@@ -43,8 +43,8 @@
 #define servo   PORTCbits.RC4
 #define laser   PORTBbits.RB1
 #define temoin  PORTCbits.RC6
-#define tempsMin 0.46               //Avec ces valeurs on a 180?
-#define tempsMax 2.20  //2.44 max
+#define tempsMin 0.33               //Avec ces valeurs on a 180
+#define tempsMax 2.08  //2.44 max
 #define omega 7.81 // Vitesse angulaire de rotation du servomoteur
 
 
@@ -59,6 +59,8 @@ void GetData();
 void Mesures();
 unsigned long max(unsigned int a, unsigned int b);
 unsigned long min (unsigned int a, unsigned int b);
+char max(char a, char b);
+char min(char a, char b);
 
 
 /////*VARIABLES GLOBALES*/////
@@ -66,6 +68,7 @@ int i = 0;
 CANmsg message;
 CANmsg incoming;
 
+char tempo[4] = {0};
 int ip = 0;
 int hh = 0;
 volatile unsigned int angle = 0 ;
@@ -239,15 +242,12 @@ void GetData()
    T0CONbits.TMR0ON = 0;
    
    nbrepoint = ip;
-//   nbrepoint = 2;
-//   timeData[0] = 26500;
-//   timeData[1] = 36500;
    pointMin[0] = timeData[0];
    pointMax[0] = timeData[1];
 
    nbreBalises = 1;
    ip = 1;
-   while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+   while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 500 && (2*ip) < nbrepoint)
    {
         pointMax[0] = timeData[2*ip + 1];
         ip++;
@@ -257,7 +257,8 @@ void GetData()
    {
         pointMin[1] = timeData[2*ip];
         pointMax[1] = timeData[2*ip + 1];
-        while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+        ip++;
+        while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 500 && (2*ip) < nbrepoint)
         {
             pointMax[1] = timeData[2*ip + 1];
             ip++;
@@ -268,10 +269,11 @@ void GetData()
         {
             pointMin[2] = timeData[2*ip];
             pointMax[2] = timeData[2*ip + 1];
-            while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+            ip++;
+            while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 500 && (2*ip) < nbrepoint)
             {
                 pointMax[2] = timeData[2*ip + 1];
-            ip++;
+                ip++;
             }
             temps[2] = (pointMax[2] - pointMin[2])*6.4;
             nbreBalises = 3;
@@ -279,82 +281,31 @@ void GetData()
             {
                 pointMin[3] = timeData[2*ip];
                 pointMax[3] = timeData[2*ip + 1];
-                while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
+                ip++;
+                while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 500 && (2*ip) < nbrepoint)
                 {
                     pointMax[3] = timeData[2*ip + 1];
                     ip++;
                 }
                 temps[3] = (pointMax[3] - pointMin[3])*6.4;
                 nbreBalises = 4;
-//                if (2*ip < nbrepoint)
-//                {
-//                    pointMin[4] = timeData[2*ip];
-//                    pointMax[4] = timeData[2*1 + 1];
-//                    while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 5000 && (2*ip) < nbrepoint)
-//                    {
-//                        pointMax[4] = timeData[2*ip + 1];
-//                        ip++;
-//                    }
-//                    nbreBalises = 5;
-//                }
             }
-        }
+         }
     }
 
 
-
-   distance[0] = 6.7/(2*omega*temps[0]*0.000001/2); //distance en cm
-   distance[1] = 6.7/(2*omega*temps[1]*0.000001/2); //distance en cm
-   distance[2] = 6.7/(2*omega*temps[2]*0.000001/2); //distance en cm
-   distance[3] = 6.7/(2*omega*temps[3]*0.000001/2); //distance en cm
-
-   position[0] =  (omega * (pointMax[0] + pointMin[0])/2 * 6.4 * 0.000001)*180/3.14159;
-   position[1] =  (omega * (pointMax[1] + pointMin[1])/2 * 6.4 * 0.000001)*180/3.14159;
-   position[2] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
-   position[3] =  (omega * (pointMax[3] + pointMin[3])/2 * 6.4 * 0.000001)*180/3.14159;
-
-
-   if (angle = 0)
+   for(hh = 0; hh < nbreBalises; hh++)
    {
-       for(hh = 0; hh < 4; hh++)
-       {
+       distance[hh] = 6.7/(2*omega*temps[hh]*0.000001/2); //distance en cm
+       position[hh] =  (omega * (pointMax[hh] + pointMin[hh])/2 * 6.4 * 0.000001)*180/3.14159;
+       if (angle == 0)
            position[hh] = 180 - position[hh];
-       }
+       message.data[2*hh] = (char)distance[hh];
+       tempo[hh] = (char)distance[hh];
+       message.data[2*hh + 1] = (char)position[hh];
    }
-   //position[4] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
-
-//   for (hh = 0; hh < 4; hh++)
-//   {
-//       if(distance[hh] >= 255)
-//       {
-//           distance[hh] = 255;
-//       }
-//       if(position[hh] >= 180)
-//       {
-//           distance[hh] = 255;
-//       }
-//   }
-
-//   if (position[1] == position[0])
-//       nbreBalises = 1;
-//   else if (position[2] == position[1])
-//       nbreBalises = 2;
-//   else if (position[2] == position[3])
-//       nbreBalises = 3;
-//   else
-//       nbreBalises = 4;
-
-   message.data[0] = (char)distance[0];
-   message.data[1] = (char)position[0];
-
-   message.data[2] = (char)distance[1];
-   message.data[3] = (char)position[1];
-
-   message.data[4] = (char)distance[2];
-   message.data[5] = (char)position[2];
-
-   message.data[6] = (char)distance[3];
-   message.data[7] = (char)position[3];
+   
+   message.data[0] = max(max(max(tempo[0], tempo[1]), tempo[2]), tempo[3]);
 
    if(broadcast)
    {
@@ -368,10 +319,10 @@ void Mesures(int a)
     if(a)
     {   TRISCbits.RC4 = 0;
         WriteAngle(0);
-        DelayMS(1000);
+        DelayMS(500);
         GetData();
         WriteAngle(180);
-        DelayMS(2000);
+        DelayMS(500);
         GetData();
     }
     else
@@ -420,6 +371,7 @@ unsigned long max(unsigned int a, unsigned int b)
         return a;
     return b;
 }
+
 unsigned long min(unsigned int a, unsigned int b)
 {
     if(a<= b)
@@ -427,13 +379,22 @@ unsigned long min(unsigned int a, unsigned int b)
     return b;
 }
 
+char max (char a, char b)
+{
+    if(a >= b)
+        return a;
+    return b;
+}
+
+char min (char a, char b)
+{
+    if(a <= b)
+        return a;
+    return b;
+}
 
 
-/*TODO
- - adapter angle lorsqu'on part de 180? ||OK MAIS A CHECKER||
- - cas de dÈpart ou arrÍt sur tourelle
- - faire en sorte qu'on connaisse le nombre de balises avec un message
- - ordoner les balises lors des messages
- - inclure <math.h>
- - optimiser le code...
- */
+/*
+ * TODO
+ * - arrêt/départ sur balise
+*/
