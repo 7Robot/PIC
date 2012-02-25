@@ -229,10 +229,10 @@ void main (void) {
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
     // Configuration des masques et filtres.
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
-    // Set Buffer 1 Mask value.
+    // Set mask values.
     CANSetMask(CAN_MASK_B1, 0b01000000000, CAN_CONFIG_STD_MSG);
     CANSetMask(CAN_MASK_B2, 0xFFFFFF, CAN_CONFIG_STD_MSG);
-    // Set Buffer 1 Filter values.
+    // Set Buffer 1 filter values.
     CANSetFilter(CAN_FILTER_B1_F1, 0b01000000000, CAN_CONFIG_STD_MSG);
     CANSetFilter(CAN_FILTER_B1_F2, 0b01000000000, CAN_CONFIG_STD_MSG);
     // Set CAN module into Normal mode.
@@ -276,7 +276,7 @@ void main (void) {
         while(gTicks == 0 && dTicks == 0)
         {} // On attend un tick à traiter.
     }
-    
+
     // Timer0 pour chronométrer les opérations flottantes.
     //    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
     //    while(1) {
@@ -297,12 +297,12 @@ void SendPosition() { // Utilisé en réponse à odoReq et dans l'autosend.
     int data[3];
 
     long thetaCentiDegrees = theta * DTHETA * CDEG; // Risque d'under/overflow avec un unsigned int.
-    
+
 
     data[0] = (int)(x * MM / 2.);
     data[1] = (int)(y * MM / 2.);
     ((unsigned int*)data)[2] = (unsigned int)(((thetaCentiDegrees % 36000) + 36000) % 36000); // Contournement du modulo négatif.
-   
+
 
     while(!CANSendMessage(516, (BYTE*)data, 6, // 516 odoPosition
         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
