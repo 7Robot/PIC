@@ -43,7 +43,7 @@
 #define servo   PORTCbits.RC4
 #define laser   PORTBbits.RB1
 #define temoin  PORTCbits.RC6
-#define tempsMin 0.46               //Avec ces valeurs on a 180°
+#define tempsMin 0.46               //Avec ces valeurs on a 180?
 #define tempsMax 2.20  //2.44 max
 #define omega 7.81 // Vitesse angulaire de rotation du servomoteur
 
@@ -107,14 +107,14 @@ void high_isr(void)
 void low_isr(void)
 {
     InterruptLaser();
-    // Réception CAN.
+    // RÈception CAN.
     if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
     {
 
         while(CANIsRxReady()) {
             CANReceiveMessage(&incoming.id, incoming.data, &incoming.len, &incoming.flags);
         }
-        
+
         switch (incoming.id) {
                     case 132: //Renvoyer distace/angle objet
                         CANSendMessage(133,message.data,2*nbreBalises,
@@ -132,14 +132,14 @@ void low_isr(void)
                     case 137: //Mesures ON
                         mesures = 1;
                       break;
-                      
+
                     default:
                       // Rien
                       break;
                     }
         led = led ^1;
 
-        
+
 
         PIR3bits.RXB0IF = 0;
     }
@@ -159,29 +159,29 @@ void main (void) {
     TRISC  = 0b10101110;
 
     servo = 0 ;
-    
+
     OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_32 /* Internal oscillator of 20MHz */);
-    T0CONbits.TMR0ON = 0; /*On ne démarre pas le TMR0*/
+    T0CONbits.TMR0ON = 0; /*On ne dÈmarre pas le TMR0*/
     WriteTimer0(0);
 
     OpenTimer3(TIMER_INT_ON & T3_16BIT_RW & T3_SOURCE_INT & T3_PS_1_2 & T3_SYNC_EXT_OFF);
 
-    RCONbits.IPEN = 1;  /* Autorise différents niveaux d'interruptions*/
+    RCONbits.IPEN = 1;  /* Autorise diffÈrents niveaux d'interruptions*/
     INTCONbits.GIE = 1; /* Autorise les interruptions hauts niveaux. */
     INTCONbits.PEIE = 1; /* Autorise les interruptions bas niveaux. */
 
     INTCONbits.TMR0IF = 0; /* Flag de TMR0*/
-    INTCON2bits.TMR0IP = 1; /* L'interuption sur TMR0 est en haute priorité*/
+    INTCON2bits.TMR0IP = 1; /* L'interuption sur TMR0 est en haute prioritÈ*/
 
     PIR2bits.TMR3IF = 0; /*Flag de TMR3*/
-    IPR2bits.TMR3IP = 1; /*L'interuption de TMR3 est en haute priorité*/
+    IPR2bits.TMR3IP = 1; /*L'interuption de TMR3 est en haute prioritÈ*/
 
     INTCON3bits.INT1E = 1; /*Enable interrupt on RB1*/
     INTCON3bits.INT1F = 0; /*External Interrupt Flag bit of RB1*/
     INTCON2bits.INTEDG1 = 1; /* On RB1 : 1:interrupt on risong edge  0:interrupt on falling edge */
     INTCON3bits.INT1IP = 0;  /*INT1 is a low level interrup*/
 
-    
+
     // Configuration du CAN.
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
     // Configuration des masques et filtres.
@@ -194,14 +194,14 @@ void main (void) {
     // Set CAN module into Normal mode.
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
     // Interruption Buffer 0.
-    IPR3bits.RXB0IP = 0; // Priorité basse.
-    PIE3bits.RXB0IE = 1; // Activée.
+    IPR3bits.RXB0IP = 0; // PrioritÈ basse.
+    PIE3bits.RXB0IE = 1; // ActivÈe.
     PIR3bits.RXB0IF = 0;
     // Interruptions Buffer 1.
     PIE3bits.RXB1IE = 0; // Interdite.
 
 
-    // Signal de démarrage du programme.
+    // Signal de dÈmarrage du programme.
     led = 0;
     for(i = 0; i < 20; i++) {
         led = led ^ 1;
@@ -210,7 +210,7 @@ void main (void) {
 
     //Autorisation des interruptions
     RCONbits.IPEN = 1;
-    INTCONbits.GIEH = 1; 
+    INTCONbits.GIEH = 1;
     INTCONbits.GIEL = 1;
 
 
@@ -224,15 +224,24 @@ void WriteAngle(int a)
 {
     angle = a;
     WriteTimer0(0); /*On initialise TMR1*/
-    ip = 0; /*On initialise le tableau timeData[] sur la première case*/
-    T0CONbits.TMR0ON = 1; /*On démarre le TMR0 pour le tableau timeData[]*/
+
+    for (ip = 0; ip < 20; ip++)
+    {
+        timeData[ip] = 0;
+    }
+
+    ip = 0; /*On initialise le tableau timeData[] sur la premiËre case*/
+    T0CONbits.TMR0ON = 1; /*On dÈmarre le TMR0 pour le tableau timeData[]*/
 }
 
 void GetData()
 {
    T0CONbits.TMR0ON = 0;
+   
    nbrepoint = ip;
-
+//   nbrepoint = 2;
+//   timeData[0] = 26500;
+//   timeData[1] = 36500;
    pointMin[0] = timeData[0];
    pointMax[0] = timeData[1];
 
@@ -291,6 +300,9 @@ void GetData()
             }
         }
     }
+
+
+
    distance[0] = 6.7/(2*omega*temps[0]*0.000001/2); //distance en cm
    distance[1] = 6.7/(2*omega*temps[1]*0.000001/2); //distance en cm
    distance[2] = 6.7/(2*omega*temps[2]*0.000001/2); //distance en cm
@@ -309,29 +321,29 @@ void GetData()
            position[hh] = 180 - position[hh];
        }
    }
-   position[4] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
+   //position[4] =  (omega * (pointMax[2] + pointMin[2])/2 * 6.4 * 0.000001)*180/3.14159;
 
-   for (hh = 0; hh < 4; hh++)
-   {
-       if(distance[hh] >= 255)
-       {
-           distance[hh] = 255;
-       }
-       if(position[hh] >= 180)
-       {
-           distance[hh] = 255;
-       }
-   }
+//   for (hh = 0; hh < 4; hh++)
+//   {
+//       if(distance[hh] >= 255)
+//       {
+//           distance[hh] = 255;
+//       }
+//       if(position[hh] >= 180)
+//       {
+//           distance[hh] = 255;
+//       }
+//   }
 
-   if (position[1] == position[0])
-       nbreBalises = 1;
-   else if (position[2] == position[1])
-       nbreBalises = 2;
-   else if (position[2] == position[3])
-       nbreBalises = 3;
-   else
-       nbreBalises = 4;
-   
+//   if (position[1] == position[0])
+//       nbreBalises = 1;
+//   else if (position[2] == position[1])
+//       nbreBalises = 2;
+//   else if (position[2] == position[3])
+//       nbreBalises = 3;
+//   else
+//       nbreBalises = 4;
+
    message.data[0] = (char)distance[0];
    message.data[1] = (char)position[0];
 
@@ -418,9 +430,10 @@ unsigned long min(unsigned int a, unsigned int b)
 
 
 /*TODO
- - adapter angle lorsqu'on part de 180° ||OK MAIS A CHECKER||
- - cas de départ ou arrêt sur tourelle
+ - adapter angle lorsqu'on part de 180? ||OK MAIS A CHECKER||
+ - cas de dÈpart ou arrÍt sur tourelle
  - faire en sorte qu'on connaisse le nombre de balises avec un message
  - ordoner les balises lors des messages
+ - inclure <math.h>
  - optimiser le code...
  */
