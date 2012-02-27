@@ -35,7 +35,6 @@
 #pragma config XINST = OFF
 #pragma config BBSIZ = 1024
 #pragma config LVP = OFF
-
 /////*CONSTANTES*/////
 #define XTAL    20000000
 #define led     PORTCbits.RC0
@@ -57,10 +56,10 @@ void InterruptLaser();
 void WriteAngle(int a);
 void GetData();
 void Mesures();
-unsigned long max(unsigned int a, unsigned int b);
-unsigned long min (unsigned int a, unsigned int b);
-char max(char a, char b);
-char min(char a, char b);
+//unsigned long max(unsigned long a, unsigned long b);
+//unsigned long min (unsigned long a, unsigned long b);
+//char max(char a, char b);
+//char min(char a, char b);
 
 
 /////*VARIABLES GLOBALES*/////
@@ -110,7 +109,7 @@ void high_isr(void)
 void low_isr(void)
 {
     InterruptLaser();
-    // RÈception CAN.
+    // Réception CAN.
     if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
     {
 
@@ -247,7 +246,7 @@ void GetData()
 
    nbreBalises = 1;
    ip = 1;
-   while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 500 && (2*ip) < nbrepoint)
+   while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 800 && (2*ip) < nbrepoint)
    {
         pointMax[0] = timeData[2*ip + 1];
         ip++;
@@ -258,7 +257,7 @@ void GetData()
         pointMin[1] = timeData[2*ip];
         pointMax[1] = timeData[2*ip + 1];
         ip++;
-        while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 500 && (2*ip) < nbrepoint)
+        while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 800 && (2*ip) < nbrepoint)
         {
             pointMax[1] = timeData[2*ip + 1];
             ip++;
@@ -270,7 +269,7 @@ void GetData()
             pointMin[2] = timeData[2*ip];
             pointMax[2] = timeData[2*ip + 1];
             ip++;
-            while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 500 && (2*ip) < nbrepoint)
+            while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 800 && (2*ip) < nbrepoint)
             {
                 pointMax[2] = timeData[2*ip + 1];
                 ip++;
@@ -282,7 +281,7 @@ void GetData()
                 pointMin[3] = timeData[2*ip];
                 pointMax[3] = timeData[2*ip + 1];
                 ip++;
-                while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 500 && (2*ip) < nbrepoint)
+                while((timeData[2*ip] - timeData[2*ip - 1])*6.4 < 800 && (2*ip) < nbrepoint)
                 {
                     pointMax[3] = timeData[2*ip + 1];
                     ip++;
@@ -305,8 +304,6 @@ void GetData()
        message.data[2*hh + 1] = (char)position[hh];
    }
    
-   message.data[0] = max(max(max(tempo[0], tempo[1]), tempo[2]), tempo[3]);
-
    if(broadcast)
    {
     CANSendMessage(133,message.data,2*nbreBalises,
@@ -328,7 +325,6 @@ void Mesures(int a)
     else
     {
         TRISCbits.RC4 = 1;
-        //servo = 0;
     }
 }
 
@@ -365,33 +361,33 @@ void InterruptLaser()
  }
 
 
-unsigned long max(unsigned int a, unsigned int b)
-{
-    if(a >= b)
-        return a;
-    return b;
-}
-
-unsigned long min(unsigned int a, unsigned int b)
-{
-    if(a<= b)
-        return a;
-    return b;
-}
-
-char max (char a, char b)
-{
-    if(a >= b)
-        return a;
-    return b;
-}
-
-char min (char a, char b)
-{
-    if(a <= b)
-        return a;
-    return b;
-}
+//unsigned long max(unsigned long a, unsigned long b)
+//{
+//    if(a >= b)
+//        return a;
+//    return b;
+//}
+//
+//unsigned long min(unsigned long a, unsigned long b)
+//{
+//    if(a<= b)
+//        return a;
+//    return b;
+//}
+//
+//char max (char a, char b)
+//{
+//    if(a >= b)
+//        return a;
+//    return b;
+//}
+//
+//char min (char a, char b)
+//{
+//    if(a <= b)
+//        return a;
+//    return b;
+//}
 
 
 /*
