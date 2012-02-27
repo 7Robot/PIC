@@ -77,7 +77,7 @@ char prevB = 0; // Valeur précédente du PORTB, pour déterminer le type de front
 
 volatile float x = 0; // En ticks.
 volatile float y = 0; // En ticks.
-volatile int theta = 0; // En ticks.
+volatile long theta = 0; // En ticks.
 
 // Nombre de ticks à traiter (signés).
 volatile int gTicks = 0;
@@ -176,9 +176,9 @@ void low_isr(void)
                 theta = 0;
             }
             else {
-                x = (float)(((int*)message.data)[0] << 1) / MM;
-                y = (float)(((int*)message.data)[1] << 1) / MM;
-                theta = (int)(((unsigned int*)message.data)[2] / CDEG / DTHETA);
+                x = (float)(((int*)message.data)[0] * 2) / MM;
+                y = (float)(((int*)message.data)[1] * 2) / MM;
+                theta = (long)(((unsigned int*)message.data)[2] / CDEG / DTHETA);
             }
         }
         else {
