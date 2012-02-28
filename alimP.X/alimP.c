@@ -190,6 +190,8 @@ void main (void) {
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Buffer 1 Mask value.
     CANSetMask(CAN_MASK_B1, 0b00010000000, CAN_CONFIG_STD_MSG);
+    CANSetMask(CAN_MASK_B2, 0xFFFFFF, CAN_CONFIG_STD_MSG);
+
     // Set Buffer 1 Filter values.
     CANSetFilter(CAN_FILTER_B1_F1, 0b00010000000, CAN_CONFIG_STD_MSG);
     CANSetFilter(CAN_FILTER_B1_F2, 0b00010000000, CAN_CONFIG_STD_MSG);
@@ -215,7 +217,7 @@ void main (void) {
     INTCONbits.GIEH = 1;
     INTCONbits.GIEL = 1;
 
-
+    mesures = 0;
     while(1) {
         Mesures(mesures);
     }
@@ -304,11 +306,18 @@ void GetData()
        message.data[2*hh + 1] = (char)position[hh];
    }
    
+   /*for(hh = 0; hh < nbreBalises; hh++)
+   {
+       message.data[hh] = temps[hh];
+   }
+
+*/
    if(broadcast)
    {
-    CANSendMessage(133,message.data,2*nbreBalises,
-                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+    CANSendMessage(133,message.data,2*nbreBalises,    /*ATTENTION Remttre 2*nbreBalises pour après !!!*/
+                       CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
    }
+
 }
 
 void Mesures(int a)
