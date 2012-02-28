@@ -160,6 +160,13 @@ void high_isr(void)
         pimessage = TrouverPlace(OUTbuffer);
         *pimessage = imessage;
 
+        if(imessage.id == 127)
+        {
+            _asm
+                reset
+            _endasm
+        }
+
         if(PlacesRestantes(OUTbuffer)==0)
             printf("OUTbFULL!\n");
 
