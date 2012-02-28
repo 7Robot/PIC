@@ -56,6 +56,7 @@ void InterruptLaser();
 void WriteAngle(int a);
 void GetData();
 void Mesures();
+
 //unsigned long max(unsigned long a, unsigned long b);
 //unsigned long min (unsigned long a, unsigned long b);
 //char max(char a, char b);
@@ -168,10 +169,6 @@ void main (void) {
 
     OpenTimer3(TIMER_INT_ON & T3_16BIT_RW & T3_SOURCE_INT & T3_PS_1_2 & T3_SYNC_EXT_OFF);
 
-    RCONbits.IPEN = 1;  /* Autorise diff»rents niveaux d'interruptions*/
-    INTCONbits.GIE = 1; /* Autorise les interruptions hauts niveaux. */
-    INTCONbits.PEIE = 1; /* Autorise les interruptions bas niveaux. */
-
     INTCONbits.TMR0IF = 0; /* Flag de TMR0*/
     INTCON2bits.TMR0IP = 1; /* L'interuption sur TMR0 est en haute priorit»*/
 
@@ -188,22 +185,24 @@ void main (void) {
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
     // Configuration des masques et filtres.
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
-    // Set Buffer 1 Mask value.
+    // Set Masks values.
     CANSetMask(CAN_MASK_B1, 0b00010000000, CAN_CONFIG_STD_MSG);
     CANSetMask(CAN_MASK_B2, 0xFFFFFF, CAN_CONFIG_STD_MSG);
-
     // Set Buffer 1 Filter values.
     CANSetFilter(CAN_FILTER_B1_F1, 0b00010000000, CAN_CONFIG_STD_MSG);
     CANSetFilter(CAN_FILTER_B1_F2, 0b00010000000, CAN_CONFIG_STD_MSG);
     // Set CAN module into Normal mode.
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
+
     // Interruption Buffer 0.
     IPR3bits.RXB0IP = 0; // Priorit» basse.
-    PIE3bits.RXB0IE = 1; // Activ»e.
+    PIE3bits.RXB0IE = 1; // activÈe
     PIR3bits.RXB0IF = 0;
     // Interruptions Buffer 1.
     PIE3bits.RXB1IE = 0; // Interdite.
 
+
+    mesures = 0; //mesures off au dÈmarrage
 
     // Signal de d»marrage du programme.
     led = 0;
@@ -217,7 +216,7 @@ void main (void) {
     INTCONbits.GIEH = 1;
     INTCONbits.GIEL = 1;
 
-    mesures = 0;
+
     while(1) {
         Mesures(mesures);
     }
