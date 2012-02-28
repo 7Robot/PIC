@@ -256,10 +256,11 @@ void low_isr(void)
         }
         // Début de l'attente des echos.
 
-        // On démarre la première conversion analogique (Sharp 1).
+        /*nc/ On démarre la première conversion analogique (Sharp 1).
         SetChanADC(ADC_CH0);
         adc_channel = 0;
         ConvertADC();
+        //*/
     }
 
     // Lecture de l'ADC et passage à la mesure suivante.
