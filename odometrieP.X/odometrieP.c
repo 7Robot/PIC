@@ -80,8 +80,8 @@ volatile float y = 0; // En ticks.
 volatile long theta = 0; // En ticks.
 
 // Nombre de ticks à traiter (signés).
-volatile int gTicks = 0;
-volatile int dTicks = 0;
+volatile char gTicks = 0;
+volatile char dTicks = 0;
 
 char unmuted = 0; // Broadcast de la position.
 
@@ -256,24 +256,29 @@ void main (void) {
     }
 
     while(1) {
-        int gTicksTmp, dTicksTmp;
-        int distance;
+        char gTicksTmp, dTicksTmp;
+        char distance;
 
+        INTCONbits.GIEL = 0;
+        INTCONbits.GIEH = 0;
         gTicksTmp = gTicks;
         gTicks = 0; // Viiiite.
         dTicksTmp = dTicks;
         dTicks = 0; // Viiiite.
+        INTCONbits.GIEH = 1;
 
         theta -= dTicksTmp + gTicksTmp;
 
         distance = gTicksTmp - dTicksTmp; // En double ticks.
+        
         x += distance * cosinus;
         y += distance * sinus;
 
         cosinus = cos(theta * DTHETA); // 534 cycles pour 0
         sinus = sin(theta * DTHETA); // 520 cycles pour 0
 
-        while(gTicks == 0 && dTicks == 0)
+        INTCONbits.GIEL = 1;
+        while(fabs(gTicks)+fabs(dTicks) < 4)
         {} // On attend un tick à traiter.
     }
 
