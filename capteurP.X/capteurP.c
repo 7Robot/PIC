@@ -201,6 +201,12 @@ void low_isr(void)
         else if(id == 365) { // sonar2Unmute
             us1_unmuted = 1;
         }
+        else if(id == 328 && len == 2) { // sonar1Thres
+            us0_threshold = ((unsigned int*) data)[0];
+        }
+        else if(id == 360 && len == 2) { // sonar2Thres
+            us1_threshold = ((unsigned int*) data)[0];
+        }
         else if(312 <= id && id <= 319) { // sharp Mute/Unmute
             sharp_unmuted[id >> 1 & 3] = id & 1;
         }
