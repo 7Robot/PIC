@@ -245,16 +245,25 @@ void GetData() {
     while (2 * dataCount < nbrepoint) {
         CalculBalise();
     }
-    
+
     for (hh = 0; hh < nbreBalises; hh++) {
-        distance[hh] = 857874.5198 / temps[hh]; //distance en cm
-        //distance[hh] = 6.7/(2*omega*temps[hh]*0.000001/2); //distance en cm
-        position[hh] = 0.001431936 * (pointMax[hh] + pointMin[hh]);
-        //position[hh] =  (omega * (pointMax[hh] + pointMin[hh])/2 * 6.4 * 0.000001)*180/3.14159;
-        if (angle == 0)
-            position[hh] = 200 - position[hh];
-        message.data[2 * hh] = (char) distance[hh];
-        message.data[2 * hh + 1] = (char) position[hh];
+        if ((distance[hh] = 857874.5198 / temps[hh]) < 180) //distance en cm
+        {
+            //distance[hh] = 6.7/(2*omega*temps[hh]*0.000001/2); //distance en cm
+            position[hh] = 0.001431936 * (pointMax[hh] + pointMin[hh]);
+            //position[hh] =  (omega * (pointMax[hh] + pointMin[hh])/2 * 6.4 * 0.000001)*180/3.14159;
+            if (angle == 0)
+                position[hh] = 200 - position[hh];
+            message.data[2 * hh] = (char) distance[hh];
+            message.data[2 * hh + 1] = (char) position[hh];
+        }
+        else
+        {
+            for(dataCount = hh; dataCount < (nbreBalises - 1); dataCount++) // Permet d'enlever les balises aberrantes
+                temps[dataCount] = temps[dataCount+1];
+            nbreBalises--;
+            hh--;
+        }
     }
 
     if (broadcast) {
