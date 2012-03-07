@@ -10,8 +10,8 @@ CND_CONF=default
 CND_DISTDIR=dist
 TMPDIR=build/${CND_CONF}/${IMAGE_TYPE}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=dist/${CND_CONF}/ax-12.x.lib
-OUTPUT_BASENAME=ax-12.x.lib
+OUTPUT_PATH=dist/${CND_CONF}/ax-12.x.${OUTPUT_SUFFIX}
+OUTPUT_BASENAME=ax-12.x.${OUTPUT_SUFFIX}
 PACKAGE_TOP_DIR=AX-12.X/
 
 # Functions

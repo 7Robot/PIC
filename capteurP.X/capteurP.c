@@ -76,7 +76,7 @@ unsigned int us1_threshold = 0;
 // Broadcast désactivé par défaut.
 char us0_unmuted = 0;
 char us1_unmuted = 0;
-char sharp_unmuted[4] = {0, 1, 0, 0};
+char sharp_unmuted[4] = {0, 0, 0, 0};
 
 
 

@@ -76,9 +76,9 @@ void resetTicks(void);
 #define Vmax 80        // Vitesse de plateau des rampes.
 //#define TicksAcc 3*TourRoue // Pente des rampes.
 
-#define Kp 15
+#define Kp 10
 #define Ki 10
-#define Kd 5
+#define Kd 8
 
 #define Kr 1 // Conversion ticks-mm.
 
@@ -267,16 +267,16 @@ void low_isr(void) {
         /* Changement de vitesse avec rampe */
         if (mode == 2) {
             if (dConsigne < dVFinale) {
-                dConsigne++;
+                dConsigne += 2;
             }
             else if (dConsigne > dVFinale) {
-                dConsigne--;
+                dConsigne -= 2;
             }
             if (gConsigne < gVFinale) {
-                gConsigne++;
+                gConsigne += 2;
             }
             else if (gConsigne > gVFinale) {
-                gConsigne--;
+                gConsigne -= 2;
             }
         }
 
