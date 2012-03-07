@@ -42,32 +42,29 @@ byte presentPSL (int* PSL);
  ******************************************************************************/
 
 void SetTX() {
-    TX = 1;
-    RX = 0;
+    TX_EN = 1;
+    RX_EN = 0;
 }
 
 void SetRX() {
-    TX = 0;
-    RX = 1;
-}
-
-void SetupAX(unsigned int spbrg) {  //Be carefull to BRGH...
-    TRISCbits.TRISC0 = 0;
-    TRISCbits.TRISC1 = 0;
-
-    // http://www.piclist.com/techref/microchip/spbrgcalc.asp
-    // because we use USART_BRGH_LOW in USART_ASYNCH_MODE.
-    Open1USART(USART_TX_INT_OFF & USART_RX_INT_OFF & USART_ASYNCH_MODE
-            & USART_EIGHT_BIT & USART_CONT_RX & USART_BRGH_HIGH,
-            spbrg);
+    TX_EN = 0;
+    RX_EN = 1;
 }
 
 
 /******************************************************************************
- * Functions to write and write command and return packets
+ * Functions to read and write command and return packets
  ******************************************************************************/
 
 byte checksumAX;
+struct {
+    byte id;
+    byte len;
+    errorAX error;
+    byte params[4]; // Could be larger.
+} responseAX;
+char responseReadyAX = 0;
+char posAX = -4;
 
 void PushUSART(byte b) {
     while (Busy1USART());
@@ -75,39 +72,25 @@ void PushUSART(byte b) {
     checksumAX += b;
 }
 
-byte PopUSART() {
-    byte b;
-
-    // TODO : reduce the delay in the middle of packets.
-    // TODO : check status packet avec la LED
-    // The maximum Return Delay Time is of 254 * 2Âµs so we should wait more than
-    // 0.5 ms, corresponing to 1250 clock cycles at 8MHz. Maybe.
-    //for (; i < 2000 && !DataRdy1USART(); i++);
-
-    b = Read1USART(); // Non blocking.
-    checksumAX += b;
-    return b; // Errors will be detected by the checksum.
-}
-
 /*
  * Write the first bytes of a command packet, assuming a <len> parameters will
  * follow.
  */
-void PushHeaderAX(AX12 ax, int len, byte inst) {
+void PushHeaderAX(byte id, byte len, byte inst) {
     SetTX();
     
     PushUSART(0xFF);
     PushUSART(0xFF);
 
     checksumAX = 0; // The first two bytes don't count.
-    PushUSART(ax.id);
+    PushUSART(id);
     PushUSART(len + 2); // Bytes to go : instruction + buffer (len) + checksum.
     PushUSART(inst);
 }
 
 /* Write a buffer of given length to the body of a command packet. */
-void PushBufferAX(int len, byte* buf) {
-    int i;
+void PushBufferAX(byte len, byte* buf) {
+    byte i;
     for (i = 0; i < len; i++) {
         PushUSART(buf[i]);
     }
@@ -116,32 +99,46 @@ void PushBufferAX(int len, byte* buf) {
 /* Finish a command packet by sending the checksum. */
 void PushFooterAX() {
     PushUSART(~checksumAX);
+    while (Busy1USART());
+    SetRX();
 }
 
-/* Try to read a status packet with <len> parameters and write it to <buf>. */
-int PopReplyAX(AX12 ax, int len, byte* buf) {
-    int i;
-    byte incoming;
-    char count = 0;
-
-    while (Busy1USART()); // Wait for the data to be sent.
-    SetRX();
-
-    while(count < len + 2)
-    if(DataRdy1USART())
+/**/
+void InterruptAX() {
+    if(PIE1bits.RCIE && PIR1bits.RCIF)
     {
-       incoming = PopUSART(); //Read data
-       if(count == 2)
-           checksumAX = 0;
-       if(count > 1) // After the two 0xFF
-       {
-           *(buf + count - 2)=incoming;
+        byte b = Read1USART();
 
-       }
-       count++;
+        if(posAX == -4 && b == 0xFF)
+            posAX = -3;
+        else if(posAX == -3 && b == 0xFF) {
+            posAX = -2;
+            checksumAX = 0;
+            responseAX.len = 1;
+        }
+        else if(posAX == -2) {
+            posAX = -1;
+            responseAX.id = b;
+        }
+        else if(posAX == -1 && b < 2 + 4 /*taille de ax.parameters*/) {
+            posAX = 0;
+            checksumAX = responseAX.id + b;
+            responseAX.len = b - 2;
+        }
+        else if(0 <= posAX && posAX < responseAX.len) {
+            ((byte*)&responseAX.params)[posAX++] = b;
+            checksumAX += b;
+        }
+        else if(posAX == responseAX.len && b == ~checksumAX) {
+            responseReadyAX = 1;
+            posAX = -4;
+        }
+        else
+            posAX = -4; // Erreur.
+
+        // Sert à rien, mais Maxime insiste. Je dois être trop borné pour comprendre.
+        PIR1bits.RCIF = 0;
     }
-    
-    return 0; // Success.
 }
 
 
@@ -149,64 +146,40 @@ int PopReplyAX(AX12 ax, int len, byte* buf) {
  * Instructions Implementation
  ******************************************************************************/
 
-int PingAX(AX12 ax) {
-    PushHeaderAX(ax, 2, AX_INST_PING);
+void PingAX(byte id) {
+    PushHeaderAX(id, 2, AX_INST_PING);
     PushFooterAX();
-
-    return PopReplyAX(ax, 0, NULL); // Ping always triggers a status packet.
 }
 
-int ReadAX(AX12 ax, byte address, int len) {
-    PushHeaderAX(ax, 2, AX_INST_READ_DATA);
+void ReadAX(byte id, byte address, byte len) {
+    PushHeaderAX(id, 2, AX_INST_READ_DATA);
     PushUSART(address);
     PushUSART(len);
     PushFooterAX();
-    SetRX(); // To enable reception
-    return 0; // Use interrupts for returned datas...
 }
 
-int WriteAX(AX12 ax, byte address, int len, byte* buf) {
-    PushHeaderAX(ax, 1 + len, AX_INST_WRITE_DATA);
+void WriteAX(byte id, byte address, byte len, byte* buf) {
+    PushHeaderAX(id, 1 + len, AX_INST_WRITE_DATA);
     PushUSART(address);
     PushBufferAX(len, buf);
     PushFooterAX();
-
-    if(ax.id == AX_BROADCAST)
-        return 0;
-    else
-        return PopReplyAX(ax, 0, NULL);
 }
 
-int RegWriteAX(AX12 ax, byte address, int len, byte* buf) {
-    PushHeaderAX(ax, 1 + len, AX_INST_REG_WRITE);
+void RegWriteAX(byte id, byte address, byte len, byte* buf) {
+    PushHeaderAX(id, 1 + len, AX_INST_REG_WRITE);
     PushUSART(address);
     PushBufferAX(len, buf);
     PushFooterAX();
-
-    if(ax.id == AX_BROADCAST)
-        return 0;
-    else
-        return PopReplyAX(ax, 0, NULL);
 }
 
-int ActionAX(AX12 ax) {
-    PushHeaderAX(ax, 0, AX_INST_ACTION);
+void ActionAX(byte id) {
+    PushHeaderAX(id, 0, AX_INST_ACTION);
     PushFooterAX();
-
-    if(ax.id == AX_BROADCAST) // Most likely.
-        return 0;
-    else
-        return PopReplyAX(ax, 0, NULL);
 }
 
-int ResetAX(AX12 ax) {
-    PushHeaderAX(ax, 0, AX_INST_RESET);
+void ResetAX(byte id) {
+    PushHeaderAX(id, 0, AX_INST_RESET);
     PushFooterAX();
-
-    if(ax.id == AX_BROADCAST)
-        return 0;
-    else
-        return PopReplyAX(ax, 0, NULL);
 }
 
 
@@ -214,7 +187,7 @@ int ResetAX(AX12 ax) {
  * Convenience Functions
  ******************************************************************************/
 
-int RegisterLenAX(byte address) {
+byte RegisterLenAX(byte address) {
     switch (address) {
         case  2: case  3: case  4: case  5: case 11: case 12: case 13: case 16:
         case 17: case 18: case 19: case 24: case 25: case 26: case 27: case 28:
@@ -228,20 +201,12 @@ int RegisterLenAX(byte address) {
 }
 
 /* Write a value to a registry, guessing its width. */
-int PutAX(AX12 ax, byte address, int value) {
-    int i = RegisterLenAX(address);
-    return WriteAX(ax, address, RegisterLenAX(address),
+void PutAX(byte id, byte address, int value) {
+    WriteAX(id, address, RegisterLenAX(address),
                    (byte*)&value /* C18 and AX12 are little-endian */);
 }
 
 /* Read a value from a registry, guessing its width. */
-int CallAX(AX12 ax, byte address) {
-    int value;
-    int len = RegisterLenAX(address);
-    
-    byte err = ReadAX(ax, address, len);
-    if(err)
-        return -1;
-
-    return value;
+void GetAX(byte id, byte address) {
+    ReadAX(id, address, RegisterLenAX(address));
 }

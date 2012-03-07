@@ -22,9 +22,9 @@
 
 typedef unsigned char byte;
 
-//Direction pins
-#define TX PORTCbits.RC4
-#define RX PORTCbits.RC5
+// Direction pins
+#define TX_EN PORTCbits.RC4
+#define RX_EN PORTCbits.RC5
 
 // EEPROM Registers
 #define AX_MODEL_NUMBER             0
@@ -89,44 +89,37 @@ typedef unsigned char byte;
  * address18, where each bit has a different meaning.
  */
 typedef struct {
-        unsigned input_voltage : 1;
-        unsigned angle_limit : 1;
-        unsigned overheating : 1;
-        unsigned range : 1;
-        unsigned cheksum : 1;
-        unsigned overload : 1;
-        unsigned instruction : 1;
-        unsigned : 1;
+    unsigned input_voltage : 1;
+    unsigned angle_limit : 1;
+    unsigned overheating : 1;
+    unsigned range : 1;
+    unsigned cheksum : 1;
+    unsigned overload : 1;
+    unsigned instruction : 1;
+    unsigned : 1;
 } errorAX;
-
-typedef struct {
-    byte id; // ID of an AX-12 on the bus, or AX_BROADCAST for all of them.
-    errorAX errorbits; // Last status returned
-} AX12;
 
 
 void SetTX();
 void SetRX();
 void PushUSART(byte b);
-byte PopUSART();
+void InterruptAX();
 
-void SetupAX();
-void PushHeaderAX(AX12 ax, int len, byte inst);
-void PushBufferAX(int len, byte* buf);
+void PushHeaderAX(byte id, byte len, byte inst);
+void PushBufferAX(byte len, byte* buf);
 void PushFooterAX();
-int PopReplyAX(AX12 ax, int len, byte* buf);
 
-int      PingAX(AX12 ax);
-int      ReadAX(AX12 ax, byte address, int len);
-int     WriteAX(AX12 ax, byte address, int len, byte* buf);
-int  RegWriteAX(AX12 ax, byte address, int len, byte* buf);
-int    ActionAX(AX12 ax);
-int     ResetAX(AX12 ax);
-int SyncWriteAX(AX12 ax, ...);
+void      PingAX(byte id);
+void      ReadAX(byte id, byte address, byte len);
+void     WriteAX(byte id, byte address, byte len, byte* buf);
+void  RegWriteAX(byte id, byte address, byte len, byte* buf);
+void    ActionAX(byte id);
+void     ResetAX(byte id);
+//void SyncWriteAX(byte id, ...);
 
-int RegisterLenAX(byte address);
-int CallAX(AX12 ax, byte address);
-int PutAX(AX12 ax, byte address, int value);
+byte   RegisterLenAX(byte address);
+void CallAX(byte id, byte address);
+void  PutAX(byte id, byte address, int value);
 
 
 #endif /* _AX12_H */

@@ -53,7 +53,6 @@ char uincoming = 0;
 /////*VARIABLES GLOBALES*/////
 unsigned int i = 0;
 char x = 100;
-AX12 ax = {0};
 
 
 /////*Interruptions*/////
@@ -72,14 +71,7 @@ void low_interrupt(void) {
 #pragma interrupt high_isr
 
 void high_isr(void) {
-
-    Nop();
-    if(PIE1bits.RCIE && PIR1bits.RCIF)
-    {
-        uincoming = PopUSART();
-        PIR1bits.RCIF = 0;       
-    }
-   
+    InterruptAX();
 }
 
 #pragma interrupt low_isr
@@ -108,31 +100,20 @@ void main(void) {
     Open1USART(USART_TX_INT_OFF & USART_RX_INT_ON
             & USART_ASYNCH_MODE & USART_EIGHT_BIT
             & USART_CONT_RX & USART_BRGH_HIGH, 129); //9600, 0,2% err...
+    SetRX();
 
-
-    /*Servos*/
-    ax.id=3;
-    i=1;
-
-    /* Signal de démarrage du programme. */
-    RX=0;
-    TX=1;
-    for (i = 0; i < 20; i++) {
-        RX = RX^1;
-        TX = TX^1;
-        DelayMS(50);
-    }
-    RX=0;
-    TX=0;
-   
     /*Interrupts*/
-    INTCONbits.GIE = 1;
     INTCONbits.PEIE = 1;
+    INTCONbits.GIEH = 1;
+    INTCONbits.GIEL = 1;
+
 
     while (1)
     {
+        //PutAX(2 + (i % 2), AX_LED, (i / 2) % 2);
+        PutAX(3, AX_LED, i);
+        i++;
         DelayMS(1000);
-        CallAX(ax, AX_MAX_TORQUE);
     }
 
 }
