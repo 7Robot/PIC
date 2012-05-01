@@ -1,5 +1,7 @@
 /*
- * Programme d'asservissement vitesse et position du petit robot
+ * Programme d'asservissement vitesse et position du */
+#define GROS
+ /*  robot
  * Eurobot 2012
  * Compiler : Microchip C18
  * µC : 18f25K80
@@ -71,17 +73,25 @@ void resetTicks(void);
 #define riseGchA INTCON2bits.INTEDG0
 #define riseDchA INTCON2bits.INTEDG1
 
-#define TourRoue  3072 // Ticks par tour de roue (théorique).
-#define TourRobot 8424 // Ticks pour 360 degres (théorique).
-#define Vmax 80        // Vitesse de plateau des rampes.
-//#define TicksAcc 3*TourRoue // Pente des rampes.
-
-#define Kp 10
-#define Ki 10
-#define Kd 8
-
-#define Kr 1 // Conversion ticks-mm.
-
+#ifdef GROS
+    #define TourRoue  4096 // Ticks par tour de roue (théorique).
+    #define TourRobot 17726 // Ticks pour 360 degres (théorique).
+    #define Vmax 200        // Vitesse max
+    //#define TicksAcc 3*TourRoue // Pente des rampes.
+    #define Kp 16
+    #define Ki 2
+    #define Kd 0
+    #define Kr 1 // Conversion ticks-mm.
+#else
+    #define TourRoue  3072 // Ticks par tour de roue (théorique).
+    #define TourRobot 8424 // Ticks pour 360 degres (théorique).
+    #define Vmax 80        // Vitesse de plateau des rampes.
+    //#define TicksAcc 3*TourRoue // Pente des rampes.
+    #define Kp 10
+    #define Ki 10
+    #define Kd 8
+    #define Kr 1 // Conversion ticks-mm.
+#endif
 
 
 
@@ -194,6 +204,11 @@ void low_isr(void) {
         dVitesse = dTicks - dTicksp;
         gTicksp = gTicks;
         dTicksp = dTicks;
+        
+#ifdef GROS
+        gVitesse = gVitesse/2;
+        dVitesse = dVitesse/2;
+#endif
 
         /* Calcul erreur vitesse */
         dErreur = dConsigne - dVitesse;
@@ -212,24 +227,34 @@ void low_isr(void) {
 
         /* Commande des moteurs */
         GsetDC(Kp * gErreur + Ki * gIErreur + Kd * gDErreur);
-        DsetDC(Kp * dErreur + Ki * dIErreur + Kd * gDErreur);
+        DsetDC(Kp * dErreur + Ki * dIErreur + Kd * dDErreur);
 
 
-        /* Calcul profil droit. */
-        if (mode == 1 && !aru) {
+        /* Calcul profil droit ou rotation. */
+        if ((mode == 1 || mode == -1) && !aru) {
             r = Kr * (gTicks + dTicks) / 2;
             Eposition = sqrt(fabs(Rconsigne) - fabs(2 * fabs(r) - fabs(Rconsigne)));
+#ifdef GROS
             Eposition = 3 * Eposition / 2;
+            if (Eposition == 0 && r < 100)
+                Eposition = 5;
+#else
+            Eposition = 3 * Eposition / 2;
+            if (Eposition == 0 && r < 20)
+                Eposition = 1;
+#endif
             if (Eposition > Vmax)
                 Eposition = Vmax;
-            if (Eposition == 0 && r < 100)
-                Eposition = 1;
+
             if (Rconsigne < 0)
                 Eposition = -Eposition;
-            Vconsigne(Eposition, Eposition);
 
+            if(mode == 1)
+                Vconsigne(Eposition, Eposition);
+            else
+                Vconsigne(Eposition, -Eposition);
 
-            if (gConsigne == 0 || dConsigne == 0 || fabs(r - Rconsigne) < 20) {
+            if (gConsigne == 0 || dConsigne == 0 || fabs(r - Rconsigne) < 100) {
                 residu = fabs(r - Rconsigne);
                 Vconsigne(0, 0);
                 resetTicks();
@@ -241,7 +266,7 @@ void low_isr(void) {
         }
 
         /* Calcul profil rotation. */
-        if (mode == -1 && !aru) {
+       /* if (mode == -1 && !aru) {
             r = Kr * (gTicks - dTicks) / 2;
             Eposition = sqrt(fabs(Rconsigne) - fabs(2 * fabs(r) - fabs(Rconsigne)));
             Eposition = 3 * Eposition / 2;
@@ -264,7 +289,7 @@ void low_isr(void) {
                 CANSendMessage(1040, &residu, 1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME); //Idle, byte quelconque
             }
-        }
+        }*/
 
         /* Changement de vitesse avec rampe */
         if (mode == 2 && !aru) {
@@ -318,10 +343,7 @@ void low_isr(void) {
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             }
             
-
-
         }
-
 
         INTCONbits.TMR0IF = 0;
     }
@@ -384,7 +406,6 @@ void low_isr(void) {
                 aru = 1;
                 break;
 
-
             /*case 1051: // Stop
                 mode = 0;
                 Vconsigne(0, 0);
@@ -431,7 +452,12 @@ void main(void) {
     IOCB = 0b00110000;
 
     /*Timer0 interrupt pour calculs asserv*/
+#ifdef GROS
+    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_2);
+#else
     OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_4);
+#endif
+
     INTCON2bits.TMR0IP = 0; /*Basse priorité pour ne pas rater de ticks */
 
     /*Configuration du CAN*/
