@@ -106,6 +106,8 @@ long r = 0; // Position rectiligne ou angulaire.
 int Rconsigne = 0;
 long Eposition = 0; // Consigne et erreur de position (anglulaire ou rectiligne).
 char mode = 0; // Mode de fonctionnement 0:off, 1:ligne, -1:rotation.
+char aru = 0; // procédure d'arrêt d'urgence
+//int  aruResidu = 0; // distance parcourue depuis dernière consigne 1025 ou 1026
 BYTE residu = 0; // Erreur résiduelle
 int convi = 0;
 int dVFinale = 0, gVFinale = 0; // Pour changement de vitesse avec rampe.
@@ -214,7 +216,7 @@ void low_isr(void) {
 
 
         /* Calcul profil droit. */
-        if (mode == 1) {
+        if (mode == 1 && !aru) {
             r = Kr * (gTicks + dTicks) / 2;
             Eposition = sqrt(fabs(Rconsigne) - fabs(2 * fabs(r) - fabs(Rconsigne)));
             Eposition = 3 * Eposition / 2;
@@ -233,13 +235,13 @@ void low_isr(void) {
                 resetTicks();
                 mode = 0;
                 led = led^1;
-                CANSendMessage(1028, &residu, 1,
+                CANSendMessage(1040, &residu, 1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME); //Idle, byte quelconque
             }
         }
 
         /* Calcul profil rotation. */
-        if (mode == -1) {
+        if (mode == -1 && !aru) {
             r = Kr * (gTicks - dTicks) / 2;
             Eposition = sqrt(fabs(Rconsigne) - fabs(2 * fabs(r) - fabs(Rconsigne)));
             Eposition = 3 * Eposition / 2;
@@ -259,13 +261,13 @@ void low_isr(void) {
                 resetTicks();
                 mode = 0;
                 led = led ^ 1;
-                CANSendMessage(1028, &residu, 1,
+                CANSendMessage(1040, &residu, 1,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME); //Idle, byte quelconque
             }
         }
 
         /* Changement de vitesse avec rampe */
-        if (mode == 2) {
+        if (mode == 2 && !aru) {
             if (dConsigne < dVFinale) {
                 dConsigne += 2;
             }
@@ -280,6 +282,47 @@ void low_isr(void) {
             }
         }
 
+        /*Arrêt d'urgence*/
+        if(aru)
+        {
+            //Calcul de la distance parcourue depuis de debut de la consigne
+            if(mode == 1)
+                r = Kr * (gTicks + dTicks) / 2;
+            if(mode == -1)
+                r = Kr * (gTicks - dTicks) / 2;
+
+            //Arrêt
+            if (dConsigne < 0) {
+                dConsigne += 3;
+            }
+            else if (dConsigne > 0) {
+                dConsigne -= 3;
+            }
+            if (gConsigne < 0) {
+                gConsigne += 3;
+            }
+            else if (gConsigne > 0) {
+                gConsigne -= 3;
+            }
+            if(dConsigne < 3 && dConsigne > -3)
+                dConsigne = 0;
+            if(gConsigne < 3 && gConsigne > -3)
+                gConsigne = 0;
+
+            //renvoi position
+            if(dConsigne == 0 && gConsigne == 0)
+            {
+                aru  = 0;
+                mode = 0;
+                CANSendMessage(1041, &r, 2,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            }
+            
+
+
+        }
+
+
         INTCONbits.TMR0IF = 0;
     }
 
@@ -292,7 +335,7 @@ void low_isr(void) {
         led = led ^ 1;
 
         switch (message.id) {
-            case 1029: // Consigne en vitesse
+            case 1033: // Consigne en vitesse
                 mode = 0;
                 Vconsigne(((char*)&message.data)[0], ((char*)&message.data)[1]);
                 break;
@@ -338,9 +381,14 @@ void low_isr(void) {
                 break;
 
             case 1051: // Stop
+                aru = 1;
+                break;
+
+
+            /*case 1051: // Stop
                 mode = 0;
                 Vconsigne(0, 0);
-                break;
+                break;*/
 
             default:
                 // Rien
