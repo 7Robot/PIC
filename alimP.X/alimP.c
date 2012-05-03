@@ -58,6 +58,8 @@ void GetData();
 void Mesures();
 void CalculBalise();
 
+void NiveauBatterie();
+
 
 /////*VARIABLES GLOBALES*/////
 CANmsg message;
@@ -79,8 +81,11 @@ unsigned long pointMax[5] = {0};
 unsigned long pointMin[5] = {0};
 int nbreBalises = 0;
 
+int batteryLevel = 0;
+
 char mesures = 0;
 char broadcast = 0;
+char batterie = 0;
 
 /////*INTERRUPTIONS*/////
 #pragma code high_vector=0x08
@@ -131,6 +136,9 @@ void low_isr(void) {
                 break;
             case 137: //Mesures ON
                 mesures = 1;
+                break;
+            case 193 : //Demande de niveau de batterie
+                batterie = 1;
                 break;
 
             default:
@@ -220,6 +228,8 @@ void main(void) {
             Mesures();
         else
             TRISCbits.RC4 = 1; // On stop le servo moteur
+        if (batterie)
+            NiveauBatterie();
 
     }
 }
@@ -313,6 +323,22 @@ void InterruptLaser() {
     timeData[dataCount++] = ReadTimer0();
     INTCON2bits.INTEDG1 ^= 1;
     INTCON3bits.INT1F = 0;
+}
+
+
+void NiveauBatterie(){
+    unsigned int temp=0;
+    unsigned int val=0;
+
+    ADCON0bits.GO_DONE=1;
+    while(ADCON0bits.GO_DONE); //attend
+
+    val=ADRESL;           // Get the 8 bit LSB result
+    val=ADRESL>>6;
+    temp=ADRESH;
+    temp=temp<<2;         // Get the 2 bit MSB result
+    val=val+temp;
+    batteryLevel = val;
 }
 
 /*
