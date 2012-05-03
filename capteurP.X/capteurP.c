@@ -52,7 +52,7 @@ void check_button(char pos, char pin);
 int i;
 
 // Derniers états des interrupteurs.
-char button_values[4] = {0}; // Capteurs d'enfoncement.
+char switches[4] = {0}; // Capteurs d'enfoncement.
 
 
 typedef struct {
@@ -119,11 +119,11 @@ void low_isr(void)
     if(PIE3bits.RXB0IE && PIR3bits.RXB0IF)
     {
         unsigned long id;
+        char num;
+        char cmd;
         BYTE data[8];
         BYTE len;
         enum CAN_RX_MSG_FLAGS flags;
-        char pos;
-        char cmd;
 
         while(CANIsRxReady()) {
             CANReceiveMessage(&id, data, &len, &flags);
@@ -132,22 +132,23 @@ void low_isr(void)
 
         led = led ^ 1;
 
-        pos = id & 0x07;
+        num = id & 0x07;
         cmd = id & 0xF8;
         
-        if(cmd == 324) { // ranger request
-            while(!CANSendMessage(320 | pos, (BYTE*)rangers[pos].value, 2,
+        if(cmd == 320) { // rangerReq
+            id = 352 | (rangers[num].value < rangers[num].threshold) | num;
+            while(!CANSendMessage(id, (BYTE*)rangers[num].value, 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
         }
-        else if(cmd == 332) { // ranger mute
-            rangers[pos].unmuted = 0;
+        else if(cmd == 328) { // rangerThres
+            rangers[num].threshold = ((unsigned int*) data)[0];
         }
-        else if(cmd == 333) { // ranger unmute
-            rangers[pos].unmuted = 1;
+        else if(cmd == 336) { // rangerMute
+            rangers[num].unmuted = 0;
         }
-        else if(cmd == 360 && len == 2) { // ranger threshold
-            rangers[pos].threshold = ((unsigned int*) data)[0];
+        else if(cmd == 344) { // rangerUnmute
+            rangers[num].unmuted = 1;
         }
         else {
             led = led ^ 1; // On annule la commutation précédente de la LED.
@@ -162,8 +163,8 @@ void low_isr(void)
 
         check_button(0, PORTCbits.RC2);
         check_button(1, PORTCbits.RC3);
-        check_button(2, PORTCbits.RC3); // TODO pin
-        check_button(3, PORTCbits.RC3); // TODO pin
+        check_button(2, PORTCbits.RC4);
+        check_button(3, PORTCbits.RC5);
 
         // On alterne les triggers pulse, et pas besoin
         // d'attendre plus car ils restent allumés la moitié du temps (50ms).
@@ -217,9 +218,9 @@ void low_isr(void)
 }
 
 
-void check_sonar(char pos, char rising) // TODO inline ?
+void check_sonar(char num, char rising) // TODO inline ?
 {
-    ranger_finder* ranger = &rangers[pos];
+    ranger_finder* ranger = &rangers[num];
 
     if(rising) { // Début du pulse, on enregistre le temps.
          ranger->pulse_start = time;
@@ -238,7 +239,7 @@ void check_sonar(char pos, char rising) // TODO inline ?
         {
             ranger->state = new_state;
 
-            while(!CANSendMessage(352 | pos | state_changed << 42 /*TODO*/ | new_state << 55, (BYTE*)ranger.value, 2,
+            while(!CANSendMessage(352 | new_state << 4 | state_changed << 3 | num, (BYTE*)rangers[num].value, 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
             led = led ^ 1;
@@ -246,13 +247,12 @@ void check_sonar(char pos, char rising) // TODO inline ?
     }
 }
 
-void check_button(char pos, char pin)
+void check_button(char num, char pin)
 {
-    if(pin == button_values[pos]) // Évènement sur la pin.
+    if(pin == switches[num]) // Évènement sur la pin.
     {
-        button_values[pos] = !pin; // Résistances de pull-up donc niveaux inversés.
-        // TODO
-        while(!CANSendMessage(258  | pos | !pin << 4, NULL, 0,
+        switches[num] = !pin; // Résistances pull-up => niveaux inversés.
+        while(!CANSendMessage(272 | (!pin << 3) | num, NULL, 0,
             CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
         }
         led = led ^ 1;
