@@ -251,10 +251,6 @@ void main (void) {
     PIE5bits.RXB0IE = 1; // Activée.
     PIR5bits.RXB0IF = 0;
 
-    // Autorisation des interruptions.
-    RCONbits.IPEN = 1;
-    INTCONbits.GIEH = 1;
-    INTCONbits.GIEL = 1;
 
     // Signal de démarrage.
     led = 0;
@@ -262,6 +258,11 @@ void main (void) {
         led = led ^ 1;
         DelayMS(50);
     }
+    
+    // Autorisation des interruptions.
+    RCONbits.IPEN = 1;
+    INTCONbits.GIEH = 1;
+    INTCONbits.GIEL = 1;
 
     while(1) {
         char gTicksTmp, dTicksTmp;
@@ -286,7 +287,7 @@ void main (void) {
         sinus = sin(theta * DTHETA); // 520 cycles pour 0
 
         INTCONbits.GIEL = 1;
-        while(fabs(gTicks)+fabs(dTicks) < 4)
+        while(gTicks == 0 && dTicks == 0)
         {} // On attend un tick à traiter.
     }
     // Timer0 pour chronométrer les opérations flottantes.
