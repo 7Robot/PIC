@@ -18,6 +18,7 @@
 #include <timers.h>
 #include <p18f2680.h>
 #include "../libcan/can18xx8.h"
+#include "ax12.h"
 #include <usart.h>
 #include <delays.h>
 #include <portb.h>
@@ -39,6 +40,7 @@
 #define XTAL    20000000
 #define led     PORTCbits.RC0
 
+#define batterie 4
 #define servo   PORTCbits.RC4
 #define laser   PORTBbits.RB1
 #define temoin  PORTCbits.RC6
@@ -57,6 +59,9 @@ void WriteAngle(int a);
 void GetData();
 void Mesures();
 void CalculBalise();
+
+unsigned int LectureAnalogique(char pin); // Fonctionne de AN0 à AN4.
+void NiveauBatterie ();
 
 
 /////*VARIABLES GLOBALES*/////
@@ -79,8 +84,15 @@ unsigned long pointMax[5] = {0};
 unsigned long pointMin[5] = {0};
 int nbreBalises = 0;
 
+unsigned int batteryLevel = 0;
+
 char mesures = 0;
 char broadcast = 0;
+char checkBatterie = 0;
+
+char k = 0;
+int consigne_g = 511, consigne_d = 511;
+int angle_g = 0, angle_d = 0;
 
 /////*INTERRUPTIONS*/////
 #pragma code high_vector=0x08
@@ -100,6 +112,10 @@ void low_interrupt(void) {
 void high_isr(void) {
     if (PIE2bits.TMR3IE && PIR2bits.TMR3IF) {
         InterruptServo();
+    }
+    else if(PIE1bits.RCIE && PIR1bits.RCIF)
+    {
+        InterruptAX();
     }
 }
 #pragma interrupt low_isr
@@ -132,6 +148,21 @@ void low_isr(void) {
             case 137: //Mesures ON
                 mesures = 1;
                 break;
+            case 193 : //Demande de niveau de batterie
+                checkBatterie = 1;
+                break;
+            case 248: //Reception AX12 gauche
+                consigne_g = ((int*)&incoming.data)[0];
+                break;
+            case 224: //Emission AX12 gauche
+                CANSendMessage(240, &angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                break;
+            case 249: //Reception AX12 droit
+                consigne_d = ((int*)&incoming.data)[0];
+                break;
+            case 225: //Emission AX12 droit
+                CANSendMessage(241, &angle_d, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                break;
 
             default:
                 // Rien
@@ -144,6 +175,23 @@ void low_isr(void) {
         PIR3bits.RXB0IF = 0;
     }
 
+    //Gestion des AX12
+    else if(PIE1bits.TMR2IE && PIR1bits.TMR2IF)  {
+
+        if(k<60) k++;
+        else {
+            k = 0;
+            if (consigne_g != angle_g) {
+                PutAX(3, AX_GOAL_POSITION, consigne_g);
+                angle_g = consigne_g;
+            }
+            if (consigne_d != angle_d) {
+                PutAX(2, AX_GOAL_POSITION, 1023-consigne_d);
+                angle_d = consigne_d;
+            }
+        }
+        PIR1bits.TMR2IF = 0;
+    }
 }
 
 /////*PROGRAMME PRINCIPAL*/////
@@ -157,13 +205,22 @@ void main(void) {
     // Configurations.
     TRISA = 0b11111111;
     TRISB = 0b11111111;
-    TRISC = 0b10101110;
+    TRISC = 0b10101010;
 
     servo = 0;
+
+    /*Configuration module USART*/
+    OpenUSART(USART_TX_INT_OFF & USART_RX_INT_ON
+            & USART_ASYNCH_MODE & USART_EIGHT_BIT
+            & USART_CONT_RX & USART_BRGH_HIGH, 129); //9600, 0,2% err...
+    SetRX();
 
     OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_32 /* Internal oscillator of 20MHz */);
     T0CONbits.TMR0ON = 0; /*On ne dÈmarre pas le TMR0*/
     WriteTimer0(0);
+
+    OpenTimer2( TIMER_INT_ON & T2_PS_1_16 & T2_POST_1_16 );
+    IPR1bits.TMR2IP = 0;
 
     OpenTimer3(TIMER_INT_ON & T3_16BIT_RW & T3_SOURCE_INT & T3_PS_1_2 & T3_SYNC_EXT_OFF);
 
@@ -220,6 +277,8 @@ void main(void) {
             Mesures();
         else
             TRISCbits.RC4 = 1; // On stop le servo moteur
+        if (checkBatterie)
+            NiveauBatterie(batterie);
 
     }
 }
@@ -315,7 +374,47 @@ void InterruptLaser() {
     INTCON3bits.INT1F = 0;
 }
 
+
+unsigned int LectureAnalogique(char pin){
+    // ATTENTION, ne marche que de AN0 à AN4.
+    // pin = 0 => on sélectionne AN0, pin = 1 => AN1 etc...
+
+
+    unsigned int tempo = 0;
+    unsigned int val = 0;
+    pin = pin << 2;
+    ADCON0 = 0b00000001 + pin; // Selectionne le bon AN en lecture analogique
+    ADCON1 = 0b00001010; // Configuration
+
+
+
+    //ADCON2 peut être configuré si on le souhaite
+
+    ADCON0bits.GO_DONE=1;
+    while(ADCON0bits.GO_DONE); //attend
+
+    val=ADRESL;           // Get the 8 bit LSB result
+    val=ADRESL>>6;
+    tempo=ADRESH;
+    tempo=tempo<<2;         // Get the 2 bit MSB result
+    val = val + tempo;
+
+    return (val);
+}
+
+void NiveauBatterie (){
+
+    batteryLevel = LectureAnalogique(batterie);
+
+   CANSendMessage(194, &batteryLevel, 2,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+
+    checkBatterie = 0;
+
+}
 /*
  * TODO
  * - arrêt/départ sur balise
  */
+
+ 

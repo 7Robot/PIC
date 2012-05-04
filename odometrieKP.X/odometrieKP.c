@@ -42,8 +42,8 @@
 #pragma config BBSIZ = BB2K
 
 /////*CONSTANTES*/////
-#define XTAL    64000000
-#define led     PORTAbits.RA5
+#define FCY 16000000 // Fréquence d'exécution des instructions = 4*16Mhz/4 = 16MHz.
+#define led LATAbits.LATA5
 
 // Calibration optimiste.
 #define TICKS_PER_TURN (4 * 12 * 64) // Deux fronts * deux canaux * 12 pales * démultiplication.
@@ -88,7 +88,7 @@ volatile long theta = 0; // En ticks.
 volatile char gTicks = 0;
 volatile char dTicks = 0;
 
-char unmuted = 0; // Broadcast de la position.
+char unmuted = 1; // Broadcast de la position.
 
 volatile int t = 0; // Chronomètre.
 
@@ -211,19 +211,21 @@ void main (void) {
 
     // Initialisations.
     ADCON1 = 0x0F;
-    ADCON0 = 0;
+    ADCON0 = 0b00000000;
+    ANCON1 = 0x00;
     WDTCON = 0;
 
     // Configurations.
     TRISA = 0b11011111;
     TRISB = 0b11111111;
+    TRISC = 0b00000011;
     PORTC = 0b11111111;
 
     // Interruptions du PORTB (haute priorité par défaut).
     OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
     OpenRB1INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
     OpenPORTB(PORTB_CHANGE_INT_ON & PORTB_PULLUPS_OFF);
-    prevB = PORTB;
+   // prevB = PORTB;
     IOCB = 0b00110000;
 
     // Timer0 pour le broadcast de l'odométrie.
@@ -249,10 +251,6 @@ void main (void) {
     PIE5bits.RXB0IE = 1; // Activée.
     PIR5bits.RXB0IF = 0;
 
-    // Autorisation des interruptions.
-    RCONbits.IPEN = 1;
-    INTCONbits.GIEH = 1;
-    INTCONbits.GIEL = 1;
 
     // Signal de démarrage.
     led = 0;
@@ -260,6 +258,11 @@ void main (void) {
         led = led ^ 1;
         DelayMS(50);
     }
+    
+    // Autorisation des interruptions.
+    RCONbits.IPEN = 1;
+    INTCONbits.GIEH = 1;
+    INTCONbits.GIEL = 1;
 
     while(1) {
         char gTicksTmp, dTicksTmp;
@@ -284,10 +287,9 @@ void main (void) {
         sinus = sin(theta * DTHETA); // 520 cycles pour 0
 
         INTCONbits.GIEL = 1;
-        while(fabs(gTicks)+fabs(dTicks) < 4)
+        while(gTicks == 0 && dTicks == 0)
         {} // On attend un tick à traiter.
     }
-
     // Timer0 pour chronométrer les opérations flottantes.
     //    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_1);
     //    while(1) {
