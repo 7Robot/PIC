@@ -88,7 +88,7 @@ volatile long theta = 0; // En ticks.
 volatile char gTicks = 0;
 volatile char dTicks = 0;
 
-char unmuted = 1; // Broadcast de la position.
+char unmuted = 0; // Broadcast de la position.
 
 volatile int t = 0; // Chronomètre.
 
@@ -229,7 +229,7 @@ void main (void) {
     IOCB = 0b00110000;
 
     // Timer0 pour le broadcast de l'odométrie.
-    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_8); // 8 * 2^16 / 5e6 = 0.104 fois par seconde
+    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_64); // 64 * 2^16 / 16e6 = 0.262 fois par seconde
     INTCON2bits.TMR0IP = 0; // Priorité basse, car ce n'est pas critique.
 
 
