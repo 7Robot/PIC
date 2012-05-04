@@ -91,7 +91,7 @@ char broadcast = 0;
 char checkBatterie = 0;
 
 char k = 0;
-int consigne_g = 511, consigne_d = 511;
+int consigne_g = 810, consigne_d = 800;
 int angle_g = 0, angle_d = 0;
 
 /////*INTERRUPTIONS*/////
@@ -258,6 +258,9 @@ void main(void) {
 
 
     mesures = 0; //mesures off au démarrage
+
+    PutAX(254, AX_ALARM_SHUTDOWN, 0);
+    PutAX(254, AX_ALARM_LED, 0);
 
     // Signal de dÈmarrage du programme.
     led = 0;
