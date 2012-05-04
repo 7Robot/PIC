@@ -88,7 +88,7 @@ unsigned int batteryLevel = 0;
 
 char mesures = 0;
 char broadcast = 0;
-char checkBatterie = 0;
+volatile char checkBatterie = 0;
 
 char k = 0;
 int consigne_g = 810, consigne_d = 800;
@@ -155,13 +155,13 @@ void low_isr(void) {
                 consigne_g = ((int*)&incoming.data)[0];
                 break;
             case 224: //Emission AX12 gauche
-                CANSendMessage(240, &angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                CANSendMessage(240, (BYTE*)&angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 break;
             case 249: //Reception AX12 droit
                 consigne_d = ((int*)&incoming.data)[0];
                 break;
             case 225: //Emission AX12 droit
-                CANSendMessage(241, &angle_d, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                CANSendMessage(241, (BYTE*)&angle_d, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 break;
 
             default:
@@ -279,9 +279,12 @@ void main(void) {
         if (mesures)
             Mesures();
         else
-            TRISCbits.RC4 = 1; // On stop le servo moteur
+            TRISCbits.RC4 = 1; // On stoppe le servo moteur
+
         if (checkBatterie)
-            NiveauBatterie(batterie);
+            if (checkBatterie)
+                NiveauBatterie(batterie);
+        
 
     }
 }
@@ -378,18 +381,15 @@ void InterruptLaser() {
 }
 
 
-unsigned int LectureAnalogique(char pin){
+unsigned int LectureAnalogique(char pin){   // pas utilisé
     // ATTENTION, ne marche que de AN0 à AN4.
     // pin = 0 => on sélectionne AN0, pin = 1 => AN1 etc...
-
 
     unsigned int tempo = 0;
     unsigned int val = 0;
     pin = pin << 2;
     ADCON0 = 0b00000001 + pin; // Selectionne le bon AN en lecture analogique
     ADCON1 = 0b00001010; // Configuration
-
-
 
     //ADCON2 peut être configuré si on le souhaite
 
@@ -407,11 +407,31 @@ unsigned int LectureAnalogique(char pin){
 
 void NiveauBatterie (){
 
-    batteryLevel = LectureAnalogique(batterie);
+    unsigned int tempo = 0;
+    unsigned int val = 0;
 
-   CANSendMessage(194, &batteryLevel, 2,
-                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+    char pin = batterie << 2;
+    ADCON0 = 0b00000001 + pin; // Selectionne le bon AN en lecture analogique
+    ADCON1 = 0b00001010; // Configuration
 
+
+    //ADCON2 peut être configuré si on le souhaite
+
+    ADCON0bits.GO_DONE=1;
+    while(ADCON0bits.GO_DONE); //attend
+
+    val=ADRESL;           // Get the 8 bit LSB result
+    val=ADRESL>>6;
+    tempo=ADRESH;
+    tempo=tempo<<2;         // Get the 2 bit MSB result
+    val = val + tempo;
+
+
+    batteryLevel = val;
+    CANSendMessage(194, (BYTE*)&batteryLevel, 2,
+        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+
+   
     checkBatterie = 0;
 
 }
