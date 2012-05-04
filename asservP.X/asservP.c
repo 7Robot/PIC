@@ -1,5 +1,7 @@
 /*
- * Programme d'asservissement vitesse et position du petit robot
+ * Programme d'asservissement vitesse et position du */
+#define GROS
+ /*  robot
  * Eurobot 2012
  * Compiler : Microchip C18
  * µC : 18f25K80
@@ -71,17 +73,23 @@ void resetTicks(void);
 #define riseGchA INTCON2bits.INTEDG0
 #define riseDchA INTCON2bits.INTEDG1
 
-#define TourRoue  3072 // Ticks par tour de roue (théorique).
-#define TourRobot 8424 // Ticks pour 360 degres (théorique).
-#define Vmax 80        // Vitesse de plateau des rampes.
-//#define TicksAcc 3*TourRoue // Pente des rampes.
-
-#define Kp 10
-#define Ki 10
-#define Kd 8
-
-#define Kr 1 // Conversion ticks-mm.
-
+#ifdef GROS
+    #define TourRoue  4096 // Ticks par tour de roue (théorique).
+    #define TourRobot 17726 // Ticks pour 360 degres (théorique).
+    #define Vmax 200        // Vitesse max
+    //#define TicksAcc 3*TourRoue // Pente des rampes.
+    #define Kp 2
+    #define Ki 5
+    #define Kd 0
+#else
+    #define TourRoue  3072 // Ticks par tour de roue (théorique).
+    #define TourRobot 8424 // Ticks pour 360 degres (théorique).
+    #define Vmax 80        // Vitesse de plateau des rampes.
+    //#define TicksAcc 3*TourRoue // Pente des rampes.
+    #define Kp 10
+    #define Ki 10
+    #define Kd 8
+#endif
 
 
 
@@ -111,6 +119,9 @@ char aru = 0; // procédure d'arrêt d'urgence
 BYTE residu = 0; // Erreur résiduelle
 int convi = 0;
 int dVFinale = 0, gVFinale = 0; // Pour changement de vitesse avec rampe.
+
+//Pour ARM
+long ticksElie=0;
 
 // Variables CAN inutile mais cool.
 CANmsg message;
@@ -194,6 +205,11 @@ void low_isr(void) {
         dVitesse = dTicks - dTicksp;
         gTicksp = gTicks;
         dTicksp = dTicks;
+        
+#ifdef GROS
+        gVitesse = gVitesse;
+        dVitesse = dVitesse;
+#endif
 
         /* Calcul erreur vitesse */
         dErreur = dConsigne - dVitesse;
@@ -211,25 +227,41 @@ void low_isr(void) {
             Emax = dVitesse;
 
         /* Commande des moteurs */
+#ifdef GROS
+        GsetDC(Kp * gErreur + (Ki*gIErreur)/10 + Kd * gDErreur);
+        DsetDC(Kp * dErreur + (Ki*dIErreur)/10 + Kd * dDErreur);
+#else
         GsetDC(Kp * gErreur + Ki * gIErreur + Kd * gDErreur);
-        DsetDC(Kp * dErreur + Ki * dIErreur + Kd * gDErreur);
+        DsetDC(Kp * dErreur + Ki * dIErreur + Kd * dDErreur);
+#endif
 
-
-        /* Calcul profil droit. */
-        if (mode == 1 && !aru) {
-            r = Kr * (gTicks + dTicks) / 2;
+        /* Calcul profil droit ou rotation. */
+        if ((mode == 1 || mode == -1) && !aru) {
+            r = (gTicks + dTicks) / 2;
+            if(mode==-1)
+                r = (gTicks - dTicks) / 2;
             Eposition = sqrt(fabs(Rconsigne) - fabs(2 * fabs(r) - fabs(Rconsigne)));
+#ifdef GROS
+            Eposition = 2 * Eposition ;
+            if (Eposition == 0 && r < 100)
+                Eposition = 10;
+#else
             Eposition = 3 * Eposition / 2;
+            if (Eposition == 0 && r < 20)
+                Eposition = 1;
+#endif
             if (Eposition > Vmax)
                 Eposition = Vmax;
-            if (Eposition == 0 && r < 100)
-                Eposition = 1;
+
             if (Rconsigne < 0)
                 Eposition = -Eposition;
-            Vconsigne(Eposition, Eposition);
 
+            if(mode == 1)
+                Vconsigne(Eposition, Eposition);
+            else
+                Vconsigne(Eposition, -Eposition);
 
-            if (gConsigne == 0 || dConsigne == 0 || fabs(r - Rconsigne) < 20) {
+            if (gConsigne == 0 || dConsigne == 0 || fabs(r - Rconsigne) < 100) {
                 residu = fabs(r - Rconsigne);
                 Vconsigne(0, 0);
                 resetTicks();
@@ -240,31 +272,6 @@ void low_isr(void) {
             }
         }
 
-        /* Calcul profil rotation. */
-        if (mode == -1 && !aru) {
-            r = Kr * (gTicks - dTicks) / 2;
-            Eposition = sqrt(fabs(Rconsigne) - fabs(2 * fabs(r) - fabs(Rconsigne)));
-            Eposition = 3 * Eposition / 2;
-            if (Eposition > Vmax)
-                Eposition = Vmax;
-
-            if (Eposition == 0 && r < 100)
-                Eposition = 1;
-            if (Rconsigne < 0)
-                Eposition = -Eposition;
-
-            Vconsigne(Eposition, -Eposition);
-
-            if (gConsigne == 0 || dConsigne == 0 || fabs(r - Rconsigne) < 20) {
-                residu = fabs(r - Rconsigne);
-                Vconsigne(0, 0);
-                resetTicks();
-                mode = 0;
-                led = led ^ 1;
-                CANSendMessage(1040, &residu, 1,
-                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME); //Idle, byte quelconque
-            }
-        }
 
         /* Changement de vitesse avec rampe */
         if (mode == 2 && !aru) {
@@ -287,9 +294,9 @@ void low_isr(void) {
         {
             //Calcul de la distance parcourue depuis de debut de la consigne
             if(mode == 1)
-                r = Kr * (gTicks + dTicks) / 2;
+                r = (gTicks + dTicks) / 2;
             if(mode == -1)
-                r = Kr * (gTicks - dTicks) / 2;
+                r = (gTicks - dTicks) / 2;
 
             //Arrêt
             if (dConsigne < 0) {
@@ -312,16 +319,17 @@ void low_isr(void) {
             //renvoi position
             if(dConsigne == 0 && gConsigne == 0)
             {
-                aru  = 0;
-                mode = 0;
-                CANSendMessage(1041, &r, 2,
+                if(mode == 1)
+                    CANSendMessage(1041, &r, 2,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                if(mode == -1)
+                    CANSendMessage(1042, &r, 2,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                aru  = 0;
+                mode = 0;                
             }
             
-
-
         }
-
 
         INTCONbits.TMR0IF = 0;
     }
@@ -335,12 +343,12 @@ void low_isr(void) {
         led = led ^ 1;
 
         switch (message.id) {
-            case 1033: // Consigne en vitesse
+            case 1032: // Consigne en vitesse
                 mode = 0;
                 Vconsigne(((char*)&message.data)[0], ((char*)&message.data)[1]);
                 break;
 
-            case 1032: // Changement de vitesse par rampe
+            case 1033: // Changement de vitesse par rampe
                 mode = 2;
                 if (mode != 2) {
                     resetTicks();
@@ -369,26 +377,31 @@ void low_isr(void) {
                 Rconsigne = ((int*)&message.data)[0];
                 break;
 
-            case 1030: // Marche
+            case 1028: // Arrêt
+                INTCONbits.TMR0IE = 0;
+                mode = 0;
+                break;
+
+            case 1029: // Marche
                 resetTicks();
                 mode = 0;
                 INTCONbits.TMR0IE = 1;
                 break;
 
-            case 1031: // Arrêt
-                INTCONbits.TMR0IE = 0;
-                mode = 0;
-                break;
-
-            case 1051: // Stop
+            case 1151: // Stop
                 aru = 1;
                 break;
 
+            case 1043: //reset ticks counter
+                resetTicks();
+                ticksElie = 0;
+                break;
 
-            /*case 1051: // Stop
-                mode = 0;
-                Vconsigne(0, 0);
-                break;*/
+            case 1044:
+                resetTicks();
+                CANSendMessage(1045, &ticksElie, 4,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                break;
 
             default:
                 // Rien
@@ -431,7 +444,12 @@ void main(void) {
     IOCB = 0b00110000;
 
     /*Timer0 interrupt pour calculs asserv*/
+#ifdef GROS
     OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_4);
+#else
+    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_4);
+#endif
+
     INTCON2bits.TMR0IP = 0; /*Basse priorité pour ne pas rater de ticks */
 
     /*Configuration du CAN*/
@@ -535,6 +553,11 @@ void Vconsigne(int Vg, int Vd) {
 void resetTicks(void) {
     /* Reset le comptage des ticks, utile entre deux consignes de position... */
     /* Attention, on reset aussi l'asserv !*/
+    if((dConsigne*gConsigne)<0)
+        ticksElie += (gTicks - dTicks) / 2;
+    else
+        ticksElie += (gTicks + dTicks) / 2;
+    
     gTicks = 0;
     dTicks = 0;
     gTicksp = 0;
