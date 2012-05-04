@@ -39,6 +39,7 @@
 #define XTAL    20000000
 #define led     PORTCbits.RC0
 
+#define batterie 4
 #define servo   PORTCbits.RC4
 #define laser   PORTBbits.RB1
 #define temoin  PORTCbits.RC6
@@ -58,7 +59,8 @@ void GetData();
 void Mesures();
 void CalculBalise();
 
-void NiveauBatterie();
+unsigned int LectureAnalogique(char pin); // Fonctionne de AN0 à AN4.
+void NiveauBatterie ();
 
 
 /////*VARIABLES GLOBALES*/////
@@ -81,11 +83,11 @@ unsigned long pointMax[5] = {0};
 unsigned long pointMin[5] = {0};
 int nbreBalises = 0;
 
-int batteryLevel = 0;
+unsigned int batteryLevel = 0;
 
 char mesures = 0;
 char broadcast = 0;
-char batterie = 0;
+char checkBatterie = 0;
 
 /////*INTERRUPTIONS*/////
 #pragma code high_vector=0x08
@@ -138,7 +140,7 @@ void low_isr(void) {
                 mesures = 1;
                 break;
             case 193 : //Demande de niveau de batterie
-                batterie = 1;
+                checkBatterie = 1;
                 break;
 
             default:
@@ -228,8 +230,8 @@ void main(void) {
             Mesures();
         else
             TRISCbits.RC4 = 1; // On stop le servo moteur
-        if (batterie)
-            NiveauBatterie();
+        if (checkBatterie)
+            NiveauBatterie(batterie);
 
     }
 }
@@ -326,22 +328,46 @@ void InterruptLaser() {
 }
 
 
-void NiveauBatterie(){
-    unsigned int temp=0;
-    unsigned int val=0;
+unsigned int LectureAnalogique(char pin){
+    // ATTENTION, ne marche que de AN0 à AN4.
+    // pin = 0 => on sélectionne AN0, pin = 1 => AN1 etc...
+
+
+    unsigned int tempo = 0;
+    unsigned int val = 0;
+    pin = pin << 2;
+    ADCON0 = 0b00000001 + pin; // Selectionne le bon AN en lecture analogique
+    ADCON1 = 0b00001010; // Configuration
+
+
+
+    //ADCON2 peut être configuré si on le souhaite
 
     ADCON0bits.GO_DONE=1;
     while(ADCON0bits.GO_DONE); //attend
 
     val=ADRESL;           // Get the 8 bit LSB result
     val=ADRESL>>6;
-    temp=ADRESH;
-    temp=temp<<2;         // Get the 2 bit MSB result
-    val=val+temp;
-    batteryLevel = val;
+    tempo=ADRESH;
+    tempo=tempo<<2;         // Get the 2 bit MSB result
+    val = val + tempo;
+
+    return (val);
 }
 
+void NiveauBatterie (){
+
+    batteryLevel = LectureAnalogique(batterie);
+
+   CANSendMessage(194, &batteryLevel, 2,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+
+    checkBatterie = 0;
+
+}
 /*
  * TODO
  * - arrêt/départ sur balise
  */
+
+ 
