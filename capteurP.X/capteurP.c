@@ -45,8 +45,8 @@
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
-void check_sonar(char pos, char rising);
-void check_button(char pos, char pin);
+void check_sonar(char, char);
+void check_button(char, char);
 
 /////*VARIABLES GLOBALES*/////
 int i;
@@ -96,7 +96,6 @@ void high_isr(void)
 
     if(INTCONbits.INT0IE && INTCONbits.INT0IF)
     {
-        INTCONbits.INT0E = 0; // Fin de la mesure.
         INTCONbits.INT0IF = 0;
         check_sonar(0, INTCON2bits.INTEDG0);
         INTCON2bits.INTEDG0 ^= 1; // On écoutera l'autre sens.
@@ -104,14 +103,13 @@ void high_isr(void)
 
     if(INTCON3bits.INT1IE && INTCON3bits.INT1IF)
     {
-        INTCON3bits.INT1E = 0; // Fin de la mesure.
         INTCON3bits.INT1IF = 0;
         check_sonar(1, INTCON2bits.INTEDG1);
         INTCON2bits.INTEDG1 ^= 1; // On écoutera l'autre sens.
     }
 }
 
-
+char un = 0;
 #pragma interrupt low_isr
 void low_isr(void)
 {
@@ -120,7 +118,7 @@ void low_isr(void)
     {
         unsigned long id;
         char num;
-        char cmd;
+        short cmd;
         BYTE data[8];
         BYTE len;
         enum CAN_RX_MSG_FLAGS flags;
@@ -133,8 +131,8 @@ void low_isr(void)
         led = led ^ 1;
 
         num = id & 0x07;
-        cmd = id & 0xF8;
-        
+        cmd = id & 0xFFF8;
+
         if(cmd == 320) { // rangerReq
             id = 352 | (rangers[num].value < rangers[num].threshold) | num;
             while(!CANSendMessage(id, (BYTE*)rangers[num].value, 2,
@@ -168,20 +166,21 @@ void low_isr(void)
 
         // On alterne les triggers pulse, et pas besoin
         // d'attendre plus car ils restent allumés la moitié du temps (50ms).
-        if(PORTCbits.RC6) {
-            PORTCbits.RC6 = 0; // Fin du pulse => déclenchement.
-            PORTCbits.RC7 = 1; // Trigger pulse pour us1.
+        if(un) {
+            CloseRB1INT();
+            OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
 
-            INTCON2bits.INTEDG0 = 1; // Rising (echo us0).
-            INTCONbits.INT0IE = 1;
+            PORTCbits.RC6 = 1; // Fin du pulse => déclenchement.
+            PORTCbits.RC7 = 0; // Trigger pulse pour us1.
         }
         else {
-            PORTCbits.RC6 = 1; // Début pulse pour us0.
-            PORTCbits.RC7 = 0; // Fin du pulse => déclenchement.
+            CloseRB0INT();
+            OpenRB1INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
 
-            INTCON2bits.INTEDG1 = 1; // Rising (echo us1).
-            INTCON3bits.INT1IE = 1;
+            PORTCbits.RC6 = 0; // Début pulse pour us0.
+            PORTCbits.RC7 = 1; // Fin du pulse => déclenchement.
         }
+        un ^= 1;
         // Début de l'attente des echos.
 
         /*TODO On démarre la première conversion analogique (Sharp 1).
@@ -200,7 +199,6 @@ void low_isr(void)
         sharp_values[adc_channel] = ADRESH; // TODO : pré-traitement
 
         if(sharp_unmuted[adc_channel] && i++ % 4 == 0) {
-            // TODO : gérer seuils
             while(!CANSendMessage(272 | adc_channel << 1, &sharp_values[adc_channel], 1,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
@@ -218,28 +216,27 @@ void low_isr(void)
 }
 
 
-void check_sonar(char num, char rising) // TODO inline ?
+void check_sonar(char num, char rising)
 {
-    ranger_finder* ranger = &rangers[num];
-
     if(rising) { // Début du pulse, on enregistre le temps.
-         ranger->pulse_start = time;
+         rangers[num].pulse_start = time;
     }
     else { // Fin du pulse.
         char new_state;
         char state_changed;
 
-        ranger->value = time - ranger->pulse_start;
+        rangers[num].value = time - rangers[num].pulse_start;
         // marche aussi si le timer a débordé car non signé
+        // TODO échelle
 
-        new_state = (ranger->value < ranger->threshold);
-        state_changed = (ranger->state != new_state);
+        new_state = (rangers[num].value < rangers[num].threshold);
+        state_changed = (rangers[num].state != new_state);
 
-        if(ranger->unmuted || state_changed)
+        if(rangers[num].unmuted || state_changed)
         {
-            ranger->state = new_state;
+            rangers[num].state = new_state;
 
-            while(!CANSendMessage(352 | new_state << 4 | state_changed << 3 | num, (BYTE*)rangers[num].value, 2,
+            while(!CANSendMessage(352 | new_state << 4 | state_changed << 3 | num, (BYTE*)&(rangers[num].value), 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
             led = led ^ 1;
@@ -249,7 +246,7 @@ void check_sonar(char num, char rising) // TODO inline ?
 
 void check_button(char num, char pin)
 {
-    if(pin == switches[num]) // Évènement sur la pin.
+    if(0 && /*HACK TODO*/ pin == switches[num]) // Évènement sur la pin.
     {
         switches[num] = !pin; // Résistances pull-up => niveaux inversés.
         while(!CANSendMessage(272 | (!pin << 3) | num, NULL, 0,
@@ -285,19 +282,19 @@ void main (void) {
     // Interruptions sur les pins "Echo output" des sonars (AN0 et AN1).
     // OpenRBxINT faits à la main (sauf pullup, par défaut).
 
-    // TODO marche pas
-    OpenADC(ADC_FOSC_4 // Tosc < 5.7 MHz.
+    /*OpenADC(ADC_FOSC_4 // Tosc < 5.7 MHz.
             & ADC_LEFT_JUST // On pourra ignorer l'octet de poid faible (2 bits non nuls).
             & ADC_20_TAD, // 15µs * 5 MHz / 4 [cf ci-dessus] = 18.75 Tosc
             ADC_CH0 // Changé par le timer de toute façon.
             & ADC_INT_ON & ADC_VREFPLUS_VDD & ADC_VREFMINUS_VSS,
             0b00001011); // Pins analogiques pour AN0 à AN3.
 
+
     // Interruption ADC.
     IPR1bits.ADIP = 0; // Priorité basse.
     PIE1bits.ADIE = 1; // Activée.
     PIR1bits.ADIF = 0;
-
+//*/
     // Configuration du CAN.
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
     // Configuration des masques et filtres.
