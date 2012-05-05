@@ -40,8 +40,6 @@
 /////*CONSTANTES*/////
 #define XTAL        20000000
 #define led         PORTAbits.RA4
-#define sharp1      0
-#define sharp2      1
 
 /////*PROTOTYPES*/////
 void high_isr(void);
@@ -49,7 +47,7 @@ void low_isr(void);
 void check_sonar(char, char);
 void check_button(char, char);
 
-unsigned int LectureAnalogique(char pin); // Fonctionne de AN0 à AN4.
+unsigned int LectureAnalogique(void); // Fonctionne de AN0 à AN4.
 
 /////*VARIABLES GLOBALES*/////
 int i;
@@ -187,10 +185,10 @@ void low_isr(void)
         // Début de l'attente des echos.
 
         // Lecture de l'ADC pour les sharps et passage à la mesure suivante.
-        rangers[cur_sharp].value = ReadADC(); //TODO
+        rangers[cur_sharp].value = LectureAnalogique();
 
         if(rangers[cur_sharp].unmuted) {
-            while(!CANSendMessage(272 | cur_sharp, (BYTE*)&(rangers[cur_sharp].value), 2,
+            while(!CANSendMessage(352 | cur_sharp, (BYTE*)&(rangers[cur_sharp].value), 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
             led = led ^ 1;
@@ -200,8 +198,18 @@ void low_isr(void)
             cur_sharp = 2;
 
         // Lancement de la conversion suivante.
-        ADCON0bits.CHS = cur_sharp; // Plus simple que SetChanADC(). //TODO
-        ConvertADC(); //TODO
+        ADCON0 = 0b00000001 + ((cur_sharp - 2) << 2); // Selectionne le bon AN en lecture analogique
+
+
+
+    //ADCON2 peut être configuré si on le souhaite
+
+    ADCON0bits.GO_DONE=1;
+
+
+
+        //ADCON0bits.CHS = cur_sharp; // Plus simple que SetChanADC(). //TODO
+        //ConvertADC(); //TODO
     }   
 }
 
@@ -246,22 +254,13 @@ void check_button(char num, char pin)
     }
 }
 
-unsigned int LectureAnalogique(char pin){
+unsigned int LectureAnalogique(){
     // ATTENTION, ne marche que de AN0 à AN4.
     // pin = 0 => on sélectionne AN0, pin = 1 => AN1 etc...
 
 
     unsigned int tempo = 0;
     unsigned int val = 0;
-    pin = pin << 2;
-    ADCON0 = 0b00000001 + pin; // Selectionne le bon AN en lecture analogique
-
-
-
-    //ADCON2 peut être configuré si on le souhaite
-
-    ADCON0bits.GO_DONE=1;
-
     val=ADRESL;           // Get the 8 bit LSB result
     val=ADRESL>>6;
     tempo=ADRESH;
@@ -283,7 +282,7 @@ void main (void) {
     TRISB = 0b11111111;
     TRISC = 0b00111111;
 
-    ADCON1 = 0b00001010; // Configuration ADC
+    ADCON1 = 0b00001011; // Configuration ADC de AN0 à AN3
 
     // Timer de rafraichissement des BP et de chronométrage des sonars
     OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_2); // 38Hz
