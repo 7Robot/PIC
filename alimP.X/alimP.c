@@ -91,9 +91,12 @@ char broadcast = 0;
 volatile char checkBatterie = 0;
 
 char k = 0;
-int consigne_g = 511, consigne_d = 511;
+int consigne_angle_g = 511, consigne_angle_d = 511;
 int angle_g = 0, angle_d = 0;
 char ordre_240 = 0, ordre_241 = 0;
+int consigne_couple_g = 1023, consigne_couple_d = 1023;
+int couple_g = 0, couple_d = 0;
+char ordre_224 = 0, ordre_225 = 0;
 
 /////*INTERRUPTIONS*/////
 #pragma code high_vector=0x08
@@ -119,12 +122,20 @@ void high_isr(void) {
     {
         InterruptAX();
         if(responseReadyAX == 1 && ordre_240 == 1) {
-            CANSendMessage(240, (BYTE*)responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            CANSendMessage(248, (BYTE*)responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_240 = 0;
         }
         if(responseReadyAX == 1 && ordre_241 == 1) {
-            CANSendMessage(241, (BYTE*)&angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            CANSendMessage(249, (BYTE*)&angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_241 = 0;
+        }
+        if(responseReadyAX == 1 && ordre_224 == 1) {
+            CANSendMessage(232, (BYTE*)&couple_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            ordre_224 = 0;
+        }
+        if(responseReadyAX == 1 && ordre_225 == 1) {
+            CANSendMessage(233, (BYTE*)&couple_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            ordre_225 = 0;
         }
     }
 }
@@ -161,24 +172,39 @@ void low_isr(void) {
             case 193 : //Demande de niveau de batterie
                 checkBatterie = 1;
                 break;
-            case 248: //Reception position AX12 gauche
-                consigne_g = ((int*)&incoming.data)[0];
+            case 252: //Reception angle AX12 gauche
+                consigne_angle_g = ((int*)&incoming.data)[0];
                 break;
-            case 224: //Emission position AX12 gauche
+            case 240: //Emission angle AX12 gauche
                 ordre_240 = 1;
                 responseReadyAX = 0;
-                GetAX(3, AX_PRESENT_POSITION);
-                //CANSendMessage(240, (BYTE*)&angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                GetAX(AX_GAUCHE, AX_PRESENT_POSITION);
                 break;
-            case 249: //Reception position AX12 droit
-                consigne_d = ((int*)&incoming.data)[0];
+            case 236: //Reception couple AX12 gauche
+                consigne_couple_g = ((int*)&incoming.data)[0];
                 break;
-            case 225: //Emission position AX12 droit
+            case 224: //Emission couple AX12 gauche
+                ordre_224 = 1;
+                responseReadyAX = 0;
+                GetAX(AX_DROIT, AX_PRESENT_LOAD);
+                break;
+            case 253: //Reception angle AX12 droit
+                consigne_angle_d = ((int*)&incoming.data)[0];
+                break;
+            case 241: //Emission angle AX12 droit
                 ordre_241 = 1;
                 responseReadyAX = 0;
-                GetAX(2, AX_PRESENT_POSITION);
-                //CANSendMessage(241, (BYTE*)&angle_d, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                GetAX(AX_DROIT, AX_PRESENT_POSITION);
                 break;
+            case 237: //Reception couple AX12 gauche
+                consigne_couple_d = ((int*)&incoming.data)[0];
+                break;
+            case 225: //Emission couple AX12 gauche
+                ordre_225 = 1;
+                responseReadyAX = 0;
+                GetAX(AX_GAUCHE, AX_PRESENT_LOAD);
+                break;
+
 
             default:
                 // Rien
@@ -197,13 +223,21 @@ void low_isr(void) {
         if(k<60) k++;
         else {
             k = 0;
-            if (consigne_g != angle_g) {
-                PutAX(3, AX_GOAL_POSITION, 1023-consigne_g);
-                angle_g = consigne_g;
+            if (consigne_angle_g != angle_g) {
+                PutAX(AX_GAUCHE, AX_GOAL_POSITION, 1023-consigne_angle_g);
+                angle_g = consigne_angle_g;
             }
-            if (consigne_d != angle_d) {
-                PutAX(2, AX_GOAL_POSITION, consigne_d);
-                angle_d = consigne_d;
+            if (consigne_angle_d != angle_d) {
+                PutAX(AX_DROIT, AX_GOAL_POSITION, consigne_angle_d);
+                angle_d = consigne_angle_d;
+            }
+            if (consigne_couple_g != couple_g) {
+                PutAX(AX_GAUCHE, AX_TORQUE_LIMIT, consigne_couple_g);
+                couple_g = consigne_couple_g;
+            }
+            if (consigne_couple_d != couple_d) {
+                PutAX(AX_DROIT, AX_TORQUE_LIMIT, consigne_couple_d);
+                couple_d = consigne_couple_d;
             }
 
         }
@@ -276,12 +310,12 @@ void main(void) {
 
     mesures = 0; //mesures off au démarrage
 
-    PutAX(254, AX_ALARM_SHUTDOWN, 0);
-    PutAX(254, AX_ALARM_LED, 0);
-//    PutAX(3, AX_CW_ANGLE_LIMIT, 0);         /* Permet de régler les angles limites des deux pincex */
-//    PutAX(3, AX_CCW_ANGLE_LIMIT, 1023);
-//    PutAX(2, AX_CW_ANGLE_LIMIT, 0);
-//    PutAX(2, AX_CCW_ANGLE_LIMIT, 1023);
+    PutAX(AX_BROADCAST, AX_ALARM_SHUTDOWN, 0);
+    PutAX(AX_BROADCAST, AX_ALARM_LED, 0);
+//    PutAX(AX_GAUCHE, AX_CW_ANGLE_LIMIT, 0);         /* Permet de régler les angles limites des deux pinces */
+//    PutAX(AX_GAUCHE, AX_CCW_ANGLE_LIMIT, 1023);
+//    PutAX(AX_DROIT, AX_CW_ANGLE_LIMIT, 0);
+//    PutAX(AX_DROIT, AX_CCW_ANGLE_LIMIT, 1023);
 
     // Signal de dÈmarrage du programme.
     led = 0;

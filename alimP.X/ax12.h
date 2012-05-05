@@ -82,6 +82,8 @@ typedef unsigned char byte;
 #define AX_INST_SYNC_WRITE          131
 
 // Broadcast ID
+#define AX_GAUCHE                   3
+#define AX_DROIT                    2
 #define AX_BROADCAST               254
 
 /*
