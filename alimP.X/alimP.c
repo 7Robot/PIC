@@ -18,7 +18,7 @@
 #include <timers.h>
 #include <p18f2680.h>
 #include "../libcan/can18xx8.h"
-#include "ax12.h"
+#include "ax12.c"
 #include <usart.h>
 #include <delays.h>
 #include <portb.h>
@@ -91,8 +91,9 @@ char broadcast = 0;
 volatile char checkBatterie = 0;
 
 char k = 0;
-int consigne_g = 810, consigne_d = 800;
+int consigne_g = 511, consigne_d = 511;
 int angle_g = 0, angle_d = 0;
+char ordre_240 = 0, ordre_241 = 0;
 
 /////*INTERRUPTIONS*/////
 #pragma code high_vector=0x08
@@ -113,9 +114,18 @@ void high_isr(void) {
     if (PIE2bits.TMR3IE && PIR2bits.TMR3IF) {
         InterruptServo();
     }
-    else if(PIE1bits.RCIE && PIR1bits.RCIF)
+
+    if(PIE1bits.RCIE && PIR1bits.RCIF)
     {
         InterruptAX();
+        if(responseReadyAX == 1 && ordre_240 == 1) {
+            CANSendMessage(240, (BYTE*)responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            ordre_240 = 0;
+        }
+        if(responseReadyAX == 1 && ordre_241 == 1) {
+            CANSendMessage(241, (BYTE*)&angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            ordre_241 = 0;
+        }
     }
 }
 #pragma interrupt low_isr
@@ -151,17 +161,23 @@ void low_isr(void) {
             case 193 : //Demande de niveau de batterie
                 checkBatterie = 1;
                 break;
-            case 248: //Reception AX12 gauche
+            case 248: //Reception position AX12 gauche
                 consigne_g = ((int*)&incoming.data)[0];
                 break;
-            case 224: //Emission AX12 gauche
-                CANSendMessage(240, (BYTE*)&angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            case 224: //Emission position AX12 gauche
+                ordre_240 = 1;
+                responseReadyAX = 0;
+                GetAX(3, AX_PRESENT_POSITION);
+                //CANSendMessage(240, (BYTE*)&angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 break;
-            case 249: //Reception AX12 droit
+            case 249: //Reception position AX12 droit
                 consigne_d = ((int*)&incoming.data)[0];
                 break;
-            case 225: //Emission AX12 droit
-                CANSendMessage(241, (BYTE*)&angle_d, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            case 225: //Emission position AX12 droit
+                ordre_241 = 1;
+                responseReadyAX = 0;
+                GetAX(2, AX_PRESENT_POSITION);
+                //CANSendMessage(241, (BYTE*)&angle_d, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 break;
 
             default:
@@ -176,19 +192,20 @@ void low_isr(void) {
     }
 
     //Gestion des AX12
-    else if(PIE1bits.TMR2IE && PIR1bits.TMR2IF)  {
+     if(PIE1bits.TMR2IE && PIR1bits.TMR2IF)  {
 
         if(k<60) k++;
         else {
             k = 0;
             if (consigne_g != angle_g) {
-                PutAX(3, AX_GOAL_POSITION, consigne_g);
+                PutAX(3, AX_GOAL_POSITION, 1023-consigne_g);
                 angle_g = consigne_g;
             }
             if (consigne_d != angle_d) {
-                PutAX(2, AX_GOAL_POSITION, 1023-consigne_d);
+                PutAX(2, AX_GOAL_POSITION, consigne_d);
                 angle_d = consigne_d;
             }
+
         }
         PIR1bits.TMR2IF = 0;
     }
@@ -261,6 +278,10 @@ void main(void) {
 
     PutAX(254, AX_ALARM_SHUTDOWN, 0);
     PutAX(254, AX_ALARM_LED, 0);
+//    PutAX(3, AX_CW_ANGLE_LIMIT, 0);         /* Permet de régler les angles limites des deux pincex */
+//    PutAX(3, AX_CCW_ANGLE_LIMIT, 1023);
+//    PutAX(2, AX_CW_ANGLE_LIMIT, 0);
+//    PutAX(2, AX_CCW_ANGLE_LIMIT, 1023);
 
     // Signal de dÈmarrage du programme.
     led = 0;

@@ -23,7 +23,7 @@
 typedef unsigned char byte;
 
 // Direction pins
-#define TX_RX PORTCbits.RC2     //TX_RW = 1 -> TX , TX_RX = 0 -> RX
+#define SET_TX PORTCbits.RC2     //SET_TX = 1 -> TX , SET_TX = 0 -> RX
 
 
 // EEPROM Registers
@@ -99,6 +99,7 @@ typedef struct {
     unsigned : 1;
 } errorAX;
 
+volatile char responseReadyAX = 0;
 
 void SetTX();
 void SetRX();
