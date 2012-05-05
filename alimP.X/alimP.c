@@ -277,7 +277,8 @@ void main(void) {
 
     while (1) {
         if (mesures)
-            Mesures();
+            if (mesures)
+                Mesures();
         else
             TRISCbits.RC4 = 1; // On stoppe le servo moteur
 
