@@ -91,7 +91,7 @@ char broadcast = 0;
 volatile char checkBatterie = 0;
 
 char k = 0;
-int consigne_angle_g = 511, consigne_angle_d = 511;
+int consigne_angle_g = 220, consigne_angle_d = 220;
 int angle_g = 0, angle_d = 0;
 char ordre_240 = 0, ordre_241 = 0;
 int consigne_couple_g = 1023, consigne_couple_d = 1023;
