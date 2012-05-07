@@ -407,6 +407,7 @@ void CalculBalise() {
 
 void Mesures() {
     PIE2bits.TMR3IE = 1;
+    INTCON3bits.INT1E = 1;
     TRISCbits.RC4 = 0;
     WriteAngle(0);
     DelayMS(500);
