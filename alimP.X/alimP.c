@@ -86,9 +86,9 @@ int nbreBalises = 0;
 
 unsigned int batteryLevel = 0;
 
-char mesures = 0;
+volatile char mesures = 0;
 char broadcast = 0;
-volatile char checkBatterie = 0;
+char checkBatterie = 0;
 
 char k = 0;
 int consigne_angle_g = 220, consigne_angle_d = 220;
@@ -170,7 +170,7 @@ void low_isr(void) {
                 mesures = 1;
                 break;
             case 193 : //Demande de niveau de batterie
-                checkBatterie = 1;
+                NiveauBatterie(batterie);
                 break;
             case 252: //Reception angle AX12 gauche
                 consigne_angle_g = ((int*)&incoming.data)[0];
@@ -283,7 +283,7 @@ void main(void) {
 
     INTCON3bits.INT1E = 1; /*Enable interrupt on RB1*/
     INTCON3bits.INT1F = 0; /*External Interrupt Flag bit of RB1*/
-    INTCON2bits.INTEDG1 = 1; /* On RB1 : 1:interrupt on risong edge  0:interrupt on falling edge On commence avec un rising edge pour ne pas avoir de problème si l'on commence sur une tourelle*/
+    INTCON2bits.INTEDG1 = 1; /* On RB1 : 1:interrupt on risong edge  0:interrupt on falling edge On commence avec un rising edge pour ne pas avoir de problème si l'on commence sur une balise*/
     INTCON3bits.INT1IP = 0; /*INT1 is a low level interrup*/
 
 
@@ -335,13 +335,10 @@ void main(void) {
             if (mesures)
                 Mesures();
         else
-            TRISCbits.RC4 = 1; // On stoppe le servo moteur
-
-        if (checkBatterie)
-            if (checkBatterie)
-                NiveauBatterie(batterie);
-        
-
+            {
+                PIE2bits.TMR3IE = 0;
+                INTCON3bits.INT1E = 0;
+            }
     }
 }
 
@@ -409,6 +406,7 @@ void CalculBalise() {
 }
 
 void Mesures() {
+    PIE2bits.TMR3IE = 1;
     TRISCbits.RC4 = 0;
     WriteAngle(0);
     DelayMS(500);
