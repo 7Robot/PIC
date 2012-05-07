@@ -283,7 +283,7 @@ void main(void) {
 
     INTCON3bits.INT1E = 1; /*Enable interrupt on RB1*/
     INTCON3bits.INT1F = 0; /*External Interrupt Flag bit of RB1*/
-    INTCON2bits.INTEDG1 = 1; /* On RB1 : 1:interrupt on risong edge  0:interrupt on falling edge */
+    INTCON2bits.INTEDG1 = 1; /* On RB1 : 1:interrupt on risong edge  0:interrupt on falling edge On commence avec un rising edge pour ne pas avoir de problème si l'on commence sur une tourelle*/
     INTCON3bits.INT1IP = 0; /*INT1 is a low level interrup*/
 
 
@@ -356,6 +356,8 @@ void GetData() {
     T0CONbits.TMR0ON = 0;
 
     nbrepoint = dataCount;
+    if (nbrepoint % 2) // Permet de ne pas avoir de problème si l'on s'arrête sur une tourelle
+        nbrepoint--;
     pointMin[0] = timeData[0];
     pointMax[0] = timeData[1];
 
@@ -491,9 +493,5 @@ void NiveauBatterie (){
     checkBatterie = 0;
 
 }
-/*
- * TODO
- * - arrêt/départ sur balise
- */
 
  
