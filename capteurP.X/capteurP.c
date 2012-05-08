@@ -172,13 +172,13 @@ void low_isr(void)
             OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
 
             PORTCbits.RC6 = 1; // Fin du pulse => déclenchement.
-            PORTCbits.RC7 = 0; // Trigger pulse pour us1.
+            PORTCbits.RC7 = 0;
         }
         else {
             CloseRB0INT();
             OpenRB1INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
 
-            PORTCbits.RC6 = 0; // Début pulse pour us0.
+            PORTCbits.RC6 = 0;
             PORTCbits.RC7 = 1; // Fin du pulse => déclenchement.
         }
         // Début de l'attente des echos.
