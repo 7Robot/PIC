@@ -122,6 +122,12 @@ void high_isr(void) {
             if (incoming == 0xBF) {
                 pumessage = TrouverPlace(INbuffer);
                 *pumessage = umessage;
+                if(pumessage.id == 127) //Reset depuis ARM
+                {
+                     _asm
+                     reset
+                     _endasm
+                }
                 if (PlacesRestantes(INbuffer) == 0)
                     printf("INbFULL!\n");
             }
