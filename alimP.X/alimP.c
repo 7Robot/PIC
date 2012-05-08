@@ -96,7 +96,7 @@ volatile int angle_g = 0;
 volatile int angle_d = 0;
 volatile char ordre_240 = 0;
 volatile char ordre_241 = 0;
-int consigne_couple_g = 1023, consigne_couple_d = 1023;
+int consigne_couple_g = 400, consigne_couple_d = 300;
 int couple_g = 0, couple_d = 0;
 volatile char ordre_224 = 0;
 volatile char ordre_225 = 0;
@@ -180,7 +180,7 @@ void high_isr(void) {
                 while(!CANSendMessage(359 | new_state << 4 | state_changed << 3, (BYTE*)&(ranger.value), 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
                 }
-                led = led ^ 1;
+              //  led = led ^ 1;
             }
         }
         INTCON2bits.INTEDG0 ^= 1; // On écoutera l'autre sens.
@@ -199,7 +199,9 @@ void low_isr(void) {
             CANReceiveMessage(&incoming.id, incoming.data, &incoming.len, &incoming.flags);
         }
 
+
         switch (incoming.id) {
+            /* TOURELLE */
             case 132: //Renvoyer distace/angle objet
                 CANSendMessage(133, message.data, 2 * nbreBalises,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
@@ -219,6 +221,8 @@ void low_isr(void) {
             case 193: //Demande de niveau de batterie
                 NiveauBatterie();
                 break;
+
+            /* AX GAUCHE */
             case 252: //Reception angle AX12 gauche
                 consigne_angle_g = ((int*) &incoming.data)[0];
                 break;
@@ -233,8 +237,10 @@ void low_isr(void) {
             case 224: //Emission couple AX12 gauche
                 ordre_224 = 1;
                 responseReadyAX = 0;
-                GetAX(AX_DROIT, AX_PRESENT_LOAD);
+                GetAX(AX_GAUCHE, AX_PRESENT_LOAD);
                 break;
+
+            /* AX DROIT */
             case 253: //Reception angle AX12 droit
                 consigne_angle_d = ((int*) &incoming.data)[0];
                 break;
@@ -243,14 +249,16 @@ void low_isr(void) {
                 responseReadyAX = 0;
                 GetAX(AX_DROIT, AX_PRESENT_POSITION);
                 break;
-            case 237: //Reception couple AX12 gauche
+            case 237: //Reception couple AX12 droit
                 consigne_couple_d = ((int*) &incoming.data)[0];
                 break;
-            case 225: //Emission couple AX12 gauche
+            case 225: //Emission couple AX12 droit
                 ordre_225 = 1;
                 responseReadyAX = 0;
-                GetAX(AX_GAUCHE, AX_PRESENT_LOAD);
+                GetAX(AX_DROIT, AX_PRESENT_LOAD);
                 break;
+
+            /* ULTRASON */
             case 327: // rangerReq
                 while(!CANSendMessage(359 | (ranger.value < ranger.threshold) << 4, (BYTE*)&(ranger.value), 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
@@ -268,6 +276,7 @@ void low_isr(void) {
             case 351: // rangerUnmute
                 ranger.unmuted = 1;
                 break;
+
             default:
                 // On annule le clignotement de la LED.
                 led = led ^1;
@@ -470,7 +479,7 @@ void GetData() {
             position[hh] = 0.001431936 * (pointMax[hh] + pointMin[hh]);
             //position[hh] =  (omega * (pointMax[hh] + pointMin[hh])/2 * 6.4 * 0.000001)*180/3.14159;
             if (angle == 0)
-                position[hh] = 200 - position[hh];
+                position[hh] = 180 - position[hh];
             message.data[2 * hh] = (char) distance[hh];
             message.data[2 * hh + 1] = (char) position[hh];
         } else {
