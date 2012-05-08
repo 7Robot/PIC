@@ -193,7 +193,7 @@ void low_isr(void) {
         InterruptLaser();
     }
     // Réception CAN.
-    if (PIE3bits.RXB0IE && PIR3bits.RXB0IF) {
+    if (PIE3bits.RXB0IE && (PIR3bits.RXB0IF || PIR3bits.RXB1IF)) {
 
         while (CANIsRxReady()) {
             CANReceiveMessage(&incoming.id, incoming.data, &incoming.len, &incoming.flags);
@@ -252,12 +252,15 @@ void low_isr(void) {
                 GetAX(AX_GAUCHE, AX_PRESENT_LOAD);
                 break;
             case 327: // rangerReq
-                while(!CANSendMessage(359 | (ranger.value < ranger.threshold), (BYTE*)ranger.value, 2,
+                while(!CANSendMessage(359 | (ranger.value < ranger.threshold) << 4, (BYTE*)&(ranger.value), 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
                 }
                 break;
             case 335: // rangerThres
-                ranger.threshold = ((unsigned int*) message.data)[0];
+                Nop();
+                Nop();
+                Nop();
+                ranger.threshold = ((unsigned int*) incoming.data)[0];
                 break;
             case 343: // rangerMute
                 ranger.unmuted = 0;
@@ -272,8 +275,10 @@ void low_isr(void) {
         }
         led = led ^1;
 
-
-        PIR3bits.RXB0IF = 0;
+        if(PIR3bits.RXB0IF)
+            PIR3bits.RXB0IF = 0;
+        else // Ne désactive pas les deux à la fois si ils sont tous les deux pleins.
+            PIR3bits.RXB1IF = 0;
     }
 
     // Génération des pulses sonars.
@@ -379,7 +384,7 @@ void main(void) {
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Masks values.
     CANSetMask(CAN_MASK_B1, 0b00010000000, CAN_CONFIG_STD_MSG);
-    CANSetMask(CAN_MASK_B2, 0b11111000111, CAN_CONFIG_STD_MSG);
+    CANSetMask(CAN_MASK_B2, 0b11111100111, CAN_CONFIG_STD_MSG);
     // Set Buffer 1 Filter values.
     CANSetFilter(CAN_FILTER_B1_F1, 0b00010000000, CAN_CONFIG_STD_MSG);
     CANSetFilter(CAN_FILTER_B1_F2, 0b00010000000, CAN_CONFIG_STD_MSG);
@@ -392,11 +397,13 @@ void main(void) {
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
 
     // Interruption Buffer 0.
-    IPR3bits.RXB0IP = 0; // PrioritÈ basse.
+    IPR3bits.RXB0IP = 0; // Priorité basse.
     PIE3bits.RXB0IE = 1; // activée
     PIR3bits.RXB0IF = 0;
-    // Interruptions Buffer 1.
-    PIE3bits.RXB1IE = 0; // Interdite.
+
+    IPR3bits.RXB1IP = 0; // Priorité basse.
+    PIE3bits.RXB1IE = 1; // Buffer 1 activé !
+    PIR3bits.RXB1IF = 0;
 
 
     mesures = 0; //mesures off au démarrage

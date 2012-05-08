@@ -135,7 +135,7 @@ void low_isr(void)
         cmd = id & 0xFFF8;
 
         if(cmd == 320) { // rangerReq
-            id = 352 | (rangers[num].value < rangers[num].threshold) | num;
+            id = 352 | (rangers[num].value < rangers[num].threshold) << 4 | num;
             while(!CANSendMessage(id, (BYTE*)rangers[num].value, 2,
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
             }
@@ -171,8 +171,8 @@ void low_isr(void)
             CloseRB1INT();
             OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
 
-            PORTCbits.RC6 = 1; // Fin du pulse => déclenchement.
-            PORTCbits.RC7 = 0;
+            PORTCbits.RC6 = 1;
+            PORTCbits.RC7 = 0; // Fin du pulse => déclenchement.
         }
         else {
             CloseRB0INT();
