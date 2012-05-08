@@ -18,7 +18,7 @@
 #include <timers.h>
 #include <p18f2680.h>
 #include "../libcan/can18xx8.h"
-#include "ax12.c"
+#include "ax12.h"
 #include <usart.h>
 #include <delays.h>
 #include <portb.h>
@@ -36,6 +36,21 @@
 #pragma config XINST = OFF
 #pragma config BBSIZ = 1024
 #pragma config LVP = OFF
+
+/////*PROTOTYPES*/////
+void high_isr(void);
+void low_isr(void);
+
+void InterruptServo(void);
+void InterruptLaser(void);
+void WriteAngle(int a);
+void GetData(void);
+void Mesures(void);
+void CalculBalise(void);
+
+unsigned int LectureAnalogique(char pin); // Fonctionne de AN0 à AN4.
+void NiveauBatterie(void);
+
 /////*CONSTANTES*/////
 #define XTAL    20000000
 #define led     PORTCbits.RC0
@@ -49,27 +64,12 @@
 #define omega 7.81 // Vitesse angulaire de rotation du servomoteur
 
 
-/////*PROTOTYPES*/////
-void high_isr(void);
-void low_isr(void);
-
-void InterruptServo();
-void InterruptLaser();
-void WriteAngle(int a);
-void GetData();
-void Mesures();
-void CalculBalise();
-
-unsigned int LectureAnalogique(char pin); // Fonctionne de AN0 à AN4.
-void NiveauBatterie ();
-
-
 /////*VARIABLES GLOBALES*/////
 CANmsg message;
 CANmsg incoming;
 int i = 0;
 
-int dataCount = 0;
+volatile int dataCount = 0;
 int hh = 0;
 volatile unsigned int angle = 0;
 int pulse = 0;
@@ -92,11 +92,27 @@ char checkBatterie = 0;
 
 char k = 0;
 int consigne_angle_g = 220, consigne_angle_d = 220;
-int angle_g = 0, angle_d = 0;
-char ordre_240 = 0, ordre_241 = 0;
+volatile int angle_g = 0;
+volatile int angle_d = 0;
+volatile char ordre_240 = 0;
+volatile char ordre_241 = 0;
 int consigne_couple_g = 1023, consigne_couple_d = 1023;
 int couple_g = 0, couple_d = 0;
-char ordre_224 = 0, ordre_225 = 0;
+volatile char ordre_224 = 0;
+volatile char ordre_225 = 0;
+
+///// cf capteurP.c ///////
+typedef struct {
+    char unmuted; // Broadcast désactivé pour 0.
+    char state; // 1 pour au dessous du seuil.
+    unsigned int threshold; // Seuil désactivé pour 0.
+    unsigned int value;
+    unsigned int pulse_start; // Ticks comptés depuis le début de l'echo.
+} ranger_finder;
+
+volatile ranger_finder ranger = {0};
+///////////////////////////
+
 
 /////*INTERRUPTIONS*/////
 #pragma code high_vector=0x08
@@ -118,25 +134,56 @@ void high_isr(void) {
         InterruptServo();
     }
 
-    if(PIE1bits.RCIE && PIR1bits.RCIF)
-    {
+    if (PIE1bits.RCIE && PIR1bits.RCIF) {
         InterruptAX();
-        if(responseReadyAX == 1 && ordre_240 == 1) {
-            CANSendMessage(248, (BYTE*)responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+        if (responseReadyAX == 1 && ordre_240 == 1) {
+            CANSendMessage(248, (BYTE*) responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_240 = 0;
         }
-        if(responseReadyAX == 1 && ordre_241 == 1) {
-            CANSendMessage(249, (BYTE*)&angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+        if (responseReadyAX == 1 && ordre_241 == 1) {
+            CANSendMessage(249, (BYTE*) & angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_241 = 0;
         }
-        if(responseReadyAX == 1 && ordre_224 == 1) {
-            CANSendMessage(232, (BYTE*)&couple_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+        if (responseReadyAX == 1 && ordre_224 == 1) {
+            CANSendMessage(232, (BYTE*) & couple_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_224 = 0;
         }
-        if(responseReadyAX == 1 && ordre_225 == 1) {
-            CANSendMessage(233, (BYTE*)&couple_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+        if (responseReadyAX == 1 && ordre_225 == 1) {
+            CANSendMessage(233, (BYTE*) & couple_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_225 = 0;
         }
+    }
+
+    if(INTCONbits.INT0IE && INTCONbits.INT0IF) // Cf capteurP.c
+    {
+        unsigned int time = ReadTimer1();
+        INTCONbits.INT0IF = 0;
+
+        if(INTCON2bits.INTEDG0) { // Début du pulse, on enregistre le temps.
+             ranger.pulse_start = time;
+        }
+        else { // Fin du pulse.
+            char new_state;
+            char state_changed;
+
+            ranger.value = time - ranger.pulse_start;
+            // marche aussi si le timer a débordé car non signé
+            // TODO échelle
+
+            new_state = (ranger.value < ranger.threshold);
+            state_changed = (ranger.state != new_state);
+
+            if(ranger.unmuted || state_changed)
+            {
+                ranger.state = new_state;
+
+                while(!CANSendMessage(359 | new_state << 4 | state_changed << 3, (BYTE*)&(ranger.value), 2,
+                    CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
+                }
+                led = led ^ 1;
+            }
+        }
+        INTCON2bits.INTEDG0 ^= 1; // On écoutera l'autre sens.
     }
 }
 #pragma interrupt low_isr
@@ -169,11 +216,11 @@ void low_isr(void) {
             case 137: //Mesures ON
                 mesures = 1;
                 break;
-            case 193 : //Demande de niveau de batterie
-                NiveauBatterie(batterie);
+            case 193: //Demande de niveau de batterie
+                NiveauBatterie();
                 break;
             case 252: //Reception angle AX12 gauche
-                consigne_angle_g = ((int*)&incoming.data)[0];
+                consigne_angle_g = ((int*) &incoming.data)[0];
                 break;
             case 240: //Emission angle AX12 gauche
                 ordre_240 = 1;
@@ -181,7 +228,7 @@ void low_isr(void) {
                 GetAX(AX_GAUCHE, AX_PRESENT_POSITION);
                 break;
             case 236: //Reception couple AX12 gauche
-                consigne_couple_g = ((int*)&incoming.data)[0];
+                consigne_couple_g = ((int*) &incoming.data)[0];
                 break;
             case 224: //Emission couple AX12 gauche
                 ordre_224 = 1;
@@ -189,7 +236,7 @@ void low_isr(void) {
                 GetAX(AX_DROIT, AX_PRESENT_LOAD);
                 break;
             case 253: //Reception angle AX12 droit
-                consigne_angle_d = ((int*)&incoming.data)[0];
+                consigne_angle_d = ((int*) &incoming.data)[0];
                 break;
             case 241: //Emission angle AX12 droit
                 ordre_241 = 1;
@@ -197,34 +244,69 @@ void low_isr(void) {
                 GetAX(AX_DROIT, AX_PRESENT_POSITION);
                 break;
             case 237: //Reception couple AX12 gauche
-                consigne_couple_d = ((int*)&incoming.data)[0];
+                consigne_couple_d = ((int*) &incoming.data)[0];
                 break;
             case 225: //Emission couple AX12 gauche
                 ordre_225 = 1;
                 responseReadyAX = 0;
                 GetAX(AX_GAUCHE, AX_PRESENT_LOAD);
                 break;
-
-
+            case 327: // rangerReq
+                while(!CANSendMessage(359 | (ranger.value < ranger.threshold), (BYTE*)ranger.value, 2,
+                    CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
+                }
+                break;
+            case 335: // rangerThres
+                ranger.threshold = ((unsigned int*) message.data)[0];
+                break;
+            case 343: // rangerMute
+                ranger.unmuted = 0;
+                break;
+            case 351: // rangerUnmute
+                ranger.unmuted = 1;
+                break;
             default:
-                // Rien
+                // On annule le clignotement de la LED.
+                led = led ^1;
                 break;
         }
         led = led ^1;
 
 
-
         PIR3bits.RXB0IF = 0;
     }
 
-    //Gestion des AX12
-     if(PIE1bits.TMR2IE && PIR1bits.TMR2IF)  {
+    // Génération des pulses sonars.
+    if(PIE1bits.TMR1IE && PIR1bits.TMR1IF) // Vingt fois par secondes, non stop.
+    {
+        PIR1bits.TMR1IF = 0;
 
-        if(k<60) k++;
+        // Cf code capeurs.
+
+        if(PORTAbits.RA0) {
+            // Tourelle : CloseRB1INT();
+            OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
+
+            PORTAbits.RA0 = 0; // Fin du pulse => déclenchement.
+            // Tourelle : PORTAbits.RA1 = 1;
+        }
+        else {
+            CloseRB0INT();
+            // Tourelle : OpenRB1INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
+
+            PORTAbits.RA0 = 1;
+            // Tourelle : PORTAbits.RA1 = 0;
+        }
+    }
+
+    //Gestion des AX12
+    if (PIE1bits.TMR2IE && PIR1bits.TMR2IF) {
+
+        if (k < 60) k++;
         else {
             k = 0;
             if (consigne_angle_g != angle_g) {
-                PutAX(AX_GAUCHE, AX_GOAL_POSITION, 1023-consigne_angle_g);
+                PutAX(AX_GAUCHE, AX_GOAL_POSITION, 1023 - consigne_angle_g);
                 angle_g = consigne_angle_g;
             }
             if (consigne_angle_d != angle_d) {
@@ -254,7 +336,7 @@ void main(void) {
     WDTCON = 0;
 
     // Configurations.
-    TRISA = 0b11111111;
+    TRISA = 0b11111110;
     TRISB = 0b11111111;
     TRISC = 0b10101010;
 
@@ -267,10 +349,14 @@ void main(void) {
     SetRX();
 
     OpenTimer0(TIMER_INT_OFF & T0_16BIT & T0_SOURCE_INT & T0_PS_1_32 /* Internal oscillator of 20MHz */);
-    T0CONbits.TMR0ON = 0; /*On ne dÈmarre pas le TMR0*/
+    T0CONbits.TMR0ON = 0; /*On ne démarre pas le TMR0*/
     WriteTimer0(0);
 
-    OpenTimer2( TIMER_INT_ON & T2_PS_1_16 & T2_POST_1_16 );
+    OpenTimer1(TIMER_INT_ON & T1_16BIT_RW & T1_SOURCE_INT & T1_PS_1_2
+            & T1_OSC1EN_OFF & T1_SYNC_EXT_OFF ); // Sonar.
+    IPR1bits.TMR1IP = 0;
+
+    OpenTimer2(TIMER_INT_ON & T2_PS_1_16 & T2_POST_1_16); // AX-12.
     IPR1bits.TMR2IP = 0;
 
     OpenTimer3(TIMER_INT_ON & T3_16BIT_RW & T3_SOURCE_INT & T3_PS_1_2 & T3_SYNC_EXT_OFF);
@@ -293,10 +379,15 @@ void main(void) {
     CANSetOperationMode(CAN_OP_MODE_CONFIG);
     // Set Masks values.
     CANSetMask(CAN_MASK_B1, 0b00010000000, CAN_CONFIG_STD_MSG);
-    CANSetMask(CAN_MASK_B2, 0xFFFFFF, CAN_CONFIG_STD_MSG);
+    CANSetMask(CAN_MASK_B2, 0b11111000111, CAN_CONFIG_STD_MSG);
     // Set Buffer 1 Filter values.
     CANSetFilter(CAN_FILTER_B1_F1, 0b00010000000, CAN_CONFIG_STD_MSG);
     CANSetFilter(CAN_FILTER_B1_F2, 0b00010000000, CAN_CONFIG_STD_MSG);
+    // Set Buffer 2 Filter values.
+    CANSetFilter(CAN_FILTER_B2_F1, 0b00101000111, CAN_CONFIG_STD_MSG);
+    CANSetFilter(CAN_FILTER_B2_F2, 0b00101000111, CAN_CONFIG_STD_MSG);
+    CANSetFilter(CAN_FILTER_B2_F3, 0b00101000111, CAN_CONFIG_STD_MSG);
+    CANSetFilter(CAN_FILTER_B2_F4, 0b00101000111, CAN_CONFIG_STD_MSG);
     // Set CAN module into Normal mode.
     CANSetOperationMode(CAN_OP_MODE_NORMAL);
 
@@ -312,33 +403,32 @@ void main(void) {
 
     PutAX(AX_BROADCAST, AX_ALARM_SHUTDOWN, 0);
     PutAX(AX_BROADCAST, AX_ALARM_LED, 0);
-//    PutAX(AX_GAUCHE, AX_CW_ANGLE_LIMIT, 0);         /* Permet de régler les angles limites des deux pinces */
-//    PutAX(AX_GAUCHE, AX_CCW_ANGLE_LIMIT, 1023);
-//    PutAX(AX_DROIT, AX_CW_ANGLE_LIMIT, 0);
-//    PutAX(AX_DROIT, AX_CCW_ANGLE_LIMIT, 1023);
+    //    PutAX(AX_GAUCHE, AX_CW_ANGLE_LIMIT, 0);         /* Permet de régler les angles limites des deux pinces */
+    //    PutAX(AX_GAUCHE, AX_CCW_ANGLE_LIMIT, 1023);
+    //    PutAX(AX_DROIT, AX_CW_ANGLE_LIMIT, 0);
+    //    PutAX(AX_DROIT, AX_CCW_ANGLE_LIMIT, 1023);
 
-    // Signal de dÈmarrage du programme.
+    // Signal de démarrage du programme.
     led = 0;
     for (i = 0; i < 20; i++) {
         led = led ^ 1;
         DelayMS(50);
     }
 
-    //Autorisation des interruptions
+    // Autorisation des interruptions
     RCONbits.IPEN = 1;
     INTCONbits.GIEH = 1;
     INTCONbits.GIEL = 1;
 
 
     while (1) {
-        if (mesures)
+        if (mesures) {
             if (mesures)
                 Mesures();
-        else
-            {
-                PIE2bits.TMR3IE = 0;
-                INTCON3bits.INT1E = 0;
-            }
+        } else {
+            PIE2bits.TMR3IE = 0;
+            INTCON3bits.INT1E = 0;
+        }
     }
 }
 
@@ -376,11 +466,9 @@ void GetData() {
                 position[hh] = 200 - position[hh];
             message.data[2 * hh] = (char) distance[hh];
             message.data[2 * hh + 1] = (char) position[hh];
-        }
-        else
-        {
-            for(dataCount = hh; dataCount < (nbreBalises - 1); dataCount++) // Permet d'enlever les balises aberrantes
-                temps[dataCount] = temps[dataCount+1];
+        } else {
+            for (dataCount = hh; dataCount < (nbreBalises - 1); dataCount++) // Permet d'enlever les balises aberrantes
+                temps[dataCount] = temps[dataCount + 1];
             nbreBalises--;
             hh--;
         }
@@ -437,8 +525,7 @@ void InterruptLaser() {
     INTCON3bits.INT1F = 0;
 }
 
-
-unsigned int LectureAnalogique(char pin){   // pas utilisé
+unsigned int LectureAnalogique(char pin) { // pas utilisé
     // ATTENTION, ne marche que de AN0 à AN4.
     // pin = 0 => on sélectionne AN0, pin = 1 => AN1 etc...
 
@@ -450,19 +537,19 @@ unsigned int LectureAnalogique(char pin){   // pas utilisé
 
     //ADCON2 peut être configuré si on le souhaite
 
-    ADCON0bits.GO_DONE=1;
-    while(ADCON0bits.GO_DONE); //attend
+    ADCON0bits.GO_DONE = 1;
+    while (ADCON0bits.GO_DONE); //attend
 
-    val=ADRESL;           // Get the 8 bit LSB result
-    val=ADRESL>>6;
-    tempo=ADRESH;
-    tempo=tempo<<2;         // Get the 2 bit MSB result
+    val = ADRESL; // Get the 8 bit LSB result
+    val = ADRESL >> 6;
+    tempo = ADRESH;
+    tempo = tempo << 2; // Get the 2 bit MSB result
     val = val + tempo;
 
     return (val);
 }
 
-void NiveauBatterie (){
+void NiveauBatterie() {
 
     unsigned int tempo = 0;
     unsigned int val = 0;
@@ -474,23 +561,21 @@ void NiveauBatterie (){
 
     //ADCON2 peut être configuré si on le souhaite
 
-    ADCON0bits.GO_DONE=1;
-    while(ADCON0bits.GO_DONE); //attend
+    ADCON0bits.GO_DONE = 1;
+    while (ADCON0bits.GO_DONE); //attend
 
-    val=ADRESL;           // Get the 8 bit LSB result
-    val=ADRESL>>6;
-    tempo=ADRESH;
-    tempo=tempo<<2;         // Get the 2 bit MSB result
+    val = ADRESL; // Get the 8 bit LSB result
+    val = ADRESL >> 6;
+    tempo = ADRESH;
+    tempo = tempo << 2; // Get the 2 bit MSB result
     val = val + tempo;
 
 
     batteryLevel = val;
-    CANSendMessage(194, (BYTE*)&batteryLevel, 2,
-        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+    CANSendMessage(194, (BYTE*) & batteryLevel, 2,
+            CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
 
-   
+
     checkBatterie = 0;
 
 }
-
- 
