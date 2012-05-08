@@ -320,10 +320,10 @@ void low_isr(void) {
             if(dConsigne == 0 && gConsigne == 0)
             {
                 if(mode == 1)
-                    CANSendMessage(1041, &r, 2,
+                    CANSendMessage(1041, (BYTE*)&r, 2,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 if(mode == -1)
-                    CANSendMessage(1042, &r, 2,
+                    CANSendMessage(1042, (BYTE*)&r, 2,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 aru  = 0;
                 mode = 0;                
@@ -399,7 +399,7 @@ void low_isr(void) {
 
             case 1044:
                 resetTicks();
-                CANSendMessage(1045, &ticksElie, 4,
+                CANSendMessage(1045, (BYTE*)&ticksElie, 4,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 break;
 

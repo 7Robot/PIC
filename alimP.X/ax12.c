@@ -38,31 +38,39 @@ byte presentPSL (int* PSL);
 
 
 /******************************************************************************
+ * Global Variables
+ ******************************************************************************/
+byte checksumAX;
+char posAX = -4;
+
+/*
+ * Public global variables, which have to be declared volatile.
+ */
+volatile char responseReadyAX = 0;
+volatile struct {
+    byte id;
+    byte len;
+    errorAX error;
+    byte params[4]; // Could be larger.
+} responseAX;
+
+
+/******************************************************************************
  * Wiring dependent functions, that you should customize
  ******************************************************************************/
 
 void SetTX() {
-    TX_RX = 1;
+    SET_TX = 1;
 }
 
 void SetRX() {
-    TX_RX = 1;
+    SET_TX = 0;
 }
 
 
 /******************************************************************************
  * Functions to read and write command and return packets
  ******************************************************************************/
-
-byte checksumAX;
-struct {
-    byte id;
-    byte len;
-    errorAX error;
-    byte params[4]; // Could be larger.
-} responseAX;
-char responseReadyAX = 0;
-char posAX = -4;
 
 void PushUSART(byte b) {
     while (BusyUSART());
@@ -106,32 +114,36 @@ void InterruptAX() {
 
         byte b = ReadUSART();
 
-        if(posAX == -4 && b == 0xFF)
+        if(posAX == -5 && b == 0xFF)
+            posAX = -4;
+        else if(posAX == -4 && b == 0xFF) {
             posAX = -3;
-        else if(posAX == -3 && b == 0xFF) {
-            posAX = -2;
             checksumAX = 0;
             responseAX.len = 1;
         }
-        else if(posAX == -2) {
-            posAX = -1;
+        else if(posAX == -3) {
+            posAX = -2;
             responseAX.id = b;
         }
-        else if(posAX == -1 && b < 2 + 4 /*taille de ax.parameters*/) {
-            posAX = 0;
+        else if(posAX == -2 && b < 2 + 4 /*taille de ax.parameters*/) {
+            posAX = -1;
             checksumAX = responseAX.id + b;
             responseAX.len = b - 2;
+        }
+        else if(posAX == -1) {
+            posAX = 0;
+            responseAX.error = *((errorAX*)&b);
         }
         else if(0 <= posAX && posAX < responseAX.len) {
             ((byte*)&responseAX.params)[posAX++] = b;
             checksumAX += b;
         }
-        else if(posAX == responseAX.len && b == ~checksumAX) {
+        else if(posAX == responseAX.len){// && b == ~checksumAX) {      TODO : Le checksumAX fait tout beuger
             responseReadyAX = 1;
-            posAX = -4;
+            posAX = -5;
         }
         else
-            posAX = -4; // Erreur.
+            posAX = -5; // Erreur.
 
         // Sert à rien, mais Maxime insiste. Je dois être trop borné pour comprendre.
         PIR1bits.RCIF = 0;

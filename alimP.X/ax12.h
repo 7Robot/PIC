@@ -23,7 +23,7 @@
 typedef unsigned char byte;
 
 // Direction pins
-#define TX_RX PORTCbits.RC2     //TX_RW = 1 -> TX , TX_RX = 0 -> RX
+#define SET_TX PORTCbits.RC2     //SET_TX = 1 -> TX , SET_TX = 0 -> RX
 
 
 // EEPROM Registers
@@ -82,6 +82,8 @@ typedef unsigned char byte;
 #define AX_INST_SYNC_WRITE          131
 
 // Broadcast ID
+#define AX_GAUCHE                   3
+#define AX_DROIT                    2
 #define AX_BROADCAST               254
 
 /*
@@ -100,14 +102,29 @@ typedef struct {
 } errorAX;
 
 
-void SetTX();
-void SetRX();
+/*
+ * Public global variables.
+ */
+extern volatile char responseReadyAX;
+extern volatile struct {
+    byte id;
+    byte len;
+    errorAX error;
+    byte params[4]; // Could be larger.
+} responseAX;
+
+
+/*
+ * Function prototypes.
+ */
+void SetTX(void);
+void SetRX(void);
 void PushUSART(byte b);
-void InterruptAX();
+void InterruptAX(void);
 
 void PushHeaderAX(byte id, byte len, byte inst);
 void PushBufferAX(byte len, byte* buf);
-void PushFooterAX();
+void PushFooterAX(void);
 
 void      PingAX(byte id);
 void      ReadAX(byte id, byte address, byte len);
@@ -118,7 +135,7 @@ void     ResetAX(byte id);
 //void SyncWriteAX(byte id, ...);
 
 byte   RegisterLenAX(byte address);
-void CallAX(byte id, byte address);
+void  GetAX(byte id, byte address);
 void  PutAX(byte id, byte address, int value);
 
 
