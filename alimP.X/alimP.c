@@ -373,7 +373,7 @@ void GetData() {
             position[hh] = 0.001431936 * (pointMax[hh] + pointMin[hh]);
             //position[hh] =  (omega * (pointMax[hh] + pointMin[hh])/2 * 6.4 * 0.000001)*180/3.14159;
             if (angle == 0)
-                position[hh] = 200 - position[hh];
+                position[hh] = 180 - position[hh];
             message.data[2 * hh] = (char) distance[hh];
             message.data[2 * hh + 1] = (char) position[hh];
         }
