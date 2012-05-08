@@ -1,6 +1,6 @@
 /*
  * Programme d'asservissement vitesse et position du */
-#define GROS
+#define PETIT
  /*  robot
  * Eurobot 2012
  * Compiler : Microchip C18
@@ -81,6 +81,7 @@ void resetTicks(void);
     #define Kp 2
     #define Ki 5
     #define Kd 0
+    #define TRESDC 400
 #else
     #define TourRoue  3072 // Ticks par tour de roue (théorique).
     #define TourRobot 8424 // Ticks pour 360 degres (théorique).
@@ -89,6 +90,7 @@ void resetTicks(void);
     #define Kp 10
     #define Ki 10
     #define Kd 8
+    #define TRESDC 0
 #endif
 
 
@@ -517,6 +519,7 @@ void GsetDC(int dc) {
     if (dc > 1023)
         dc = 1023;
 
+    dc += TRESDC;
     SetDCPWM4(dc);
 }
 
@@ -530,6 +533,9 @@ void DsetDC(int dc) {
         in4 = 0;
         dc = -dc;
     }
+
+    dc += TRESDC;
+
     if (dc > 1023)
         dc = 1023;
 
