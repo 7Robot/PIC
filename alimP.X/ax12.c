@@ -38,6 +38,24 @@ byte presentPSL (int* PSL);
 
 
 /******************************************************************************
+ * Global Variables
+ ******************************************************************************/
+byte checksumAX;
+char posAX = -4;
+
+/*
+ * Public global variables, which have to be declared volatile.
+ */
+volatile char responseReadyAX = 0;
+volatile struct {
+    byte id;
+    byte len;
+    errorAX error;
+    byte params[4]; // Could be larger.
+} responseAX;
+
+
+/******************************************************************************
  * Wiring dependent functions, that you should customize
  ******************************************************************************/
 
@@ -53,15 +71,6 @@ void SetRX() {
 /******************************************************************************
  * Functions to read and write command and return packets
  ******************************************************************************/
-
-byte checksumAX;
-struct {
-    byte id;
-    byte len;
-    errorAX error;
-    byte params[4]; // Could be larger.
-} responseAX;
-char posAX = -4;
 
 void PushUSART(byte b) {
     while (BusyUSART());
@@ -129,7 +138,7 @@ void InterruptAX() {
             ((byte*)&responseAX.params)[posAX++] = b;
             checksumAX += b;
         }
-        else if(posAX == responseAX.len){// && b == ~checksumAX) {      TO DO : Le checksumAX fait tout beuger
+        else if(posAX == responseAX.len){// && b == ~checksumAX) {      TODO : Le checksumAX fait tout beuger
             responseReadyAX = 1;
             posAX = -5;
         }
