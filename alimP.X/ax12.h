@@ -101,16 +101,30 @@ typedef struct {
     unsigned : 1;
 } errorAX;
 
-volatile char responseReadyAX = 0;
 
-void SetTX();
-void SetRX();
+/*
+ * Public global variables.
+ */
+extern volatile char responseReadyAX;
+extern volatile struct {
+    byte id;
+    byte len;
+    errorAX error;
+    byte params[4]; // Could be larger.
+} responseAX;
+
+
+/*
+ * Function prototypes.
+ */
+void SetTX(void);
+void SetRX(void);
 void PushUSART(byte b);
-void InterruptAX();
+void InterruptAX(void);
 
 void PushHeaderAX(byte id, byte len, byte inst);
 void PushBufferAX(byte len, byte* buf);
-void PushFooterAX();
+void PushFooterAX(void);
 
 void      PingAX(byte id);
 void      ReadAX(byte id, byte address, byte len);
@@ -121,7 +135,7 @@ void     ResetAX(byte id);
 //void SyncWriteAX(byte id, ...);
 
 byte   RegisterLenAX(byte address);
-void CallAX(byte id, byte address);
+void  GetAX(byte id, byte address);
 void  PutAX(byte id, byte address, int value);
 
 
