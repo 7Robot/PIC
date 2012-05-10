@@ -490,7 +490,7 @@ void GetData() {
         }
     }
 
-    if (broadcast) {
+    if (broadcast && !nbreBalises) { // On emet que si on a détecté quelque chose.
         CANSendMessage(133, message.data, 2 * nbreBalises, /*ATTENTION Remttre 2*nbreBalises pour après 2*nbreBalises !!!*/
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
     }
