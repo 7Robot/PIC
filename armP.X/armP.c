@@ -122,7 +122,7 @@ void high_isr(void) {
             if (incoming == 0xBF) {
                 pumessage = TrouverPlace(INbuffer);
                 *pumessage = umessage;
-                if(pumessage.id == 127) //Reset depuis ARM
+                if(pumessage->id == 127) //Reset depuis ARM
                 {
                      _asm
                      reset
@@ -211,7 +211,7 @@ void main(void) {
     /*Configuration du port série*/
     OpenUSART(USART_TX_INT_OFF & USART_RX_INT_ON
             & USART_ASYNCH_MODE & USART_EIGHT_BIT
-            & USART_CONT_RX & USART_BRGH_HIGH, 10); //115200, 1,2% err...
+            & USART_CONT_RX & USART_BRGH_HIGH, 64); //115200, 1,2% err... 64 avant
 
     /*Configuration du CAN*/
     CANInitialize(1, 5, 7, 6, 2, CAN_CONFIG_VALID_STD_MSG);
