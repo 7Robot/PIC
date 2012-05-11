@@ -1,6 +1,6 @@
 /*
  * Programme d'asservissement vitesse et position du */
-#define PETIT
+#define GROS
  /*  robot
  * Eurobot 2012
  * Compiler : Microchip C18
@@ -79,8 +79,8 @@ void resetTicks(void);
     #define Vmax 200        // Vitesse max
     //#define TicksAcc 3*TourRoue // Pente des rampes.
     #define Kp 2
-    #define Ki 5
-    #define Kd 0
+    #define Ki 10
+    #define Kd 1
     #define TRESDC 400
 #else
     #define TourRoue  3072 // Ticks par tour de roue (théorique).
@@ -224,9 +224,6 @@ void low_isr(void) {
         gDErreur = gErreur - gErreurP;
         dErreurP = dErreur;
         gErreurP = gErreur;
-
-        if (dVitesse > Emax)
-            Emax = dVitesse;
 
         /* Commande des moteurs */
 #ifdef GROS
@@ -381,11 +378,14 @@ void low_isr(void) {
 
             case 1028: // Arrêt
                 INTCONbits.TMR0IE = 0;
+                GsetDC(0);
+                DsetDC(0);
                 mode = 0;
                 break;
 
             case 1029: // Marche
                 resetTicks();
+                Vconsigne(0,0);
                 mode = 0;
                 INTCONbits.TMR0IE = 1;
                 break;
@@ -489,6 +489,7 @@ void main(void) {
     INTCONbits.GIEL = 1; /* Autorisation des interruptions de bas niveau. */
 
 
+
     while (1);
 }
 
@@ -515,11 +516,9 @@ void GsetDC(int dc) {
         in2 = 1;
         dc = -dc;
     }
-
+    dc += TRESDC;
     if (dc > 1023)
         dc = 1023;
-
-    dc += TRESDC;
     SetDCPWM4(dc);
 }
 
@@ -533,12 +532,9 @@ void DsetDC(int dc) {
         in4 = 0;
         dc = -dc;
     }
-
     dc += TRESDC;
-
     if (dc > 1023)
         dc = 1023;
-
     SetDCPWM3(dc);
 }
 
