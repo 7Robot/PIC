@@ -18,7 +18,7 @@
 #include <timers.h>
 #include <p18f2680.h>
 #include "../libcan/can18xx8.h"
-#include "ax12.c"
+#include "ax12.h"
 #include <usart.h>
 #include <delays.h>
 #include <portb.h>
@@ -139,8 +139,9 @@ void high_isr(void) {
     if (PIE1bits.RCIE && PIR1bits.RCIF) {
         InterruptAX();
         if (responseReadyAX == 1 && ordre_240 == 1) {
-            conversion_angle = 1023 -(responseAX.params[1]*256 + responseAX.params[0]);
-            CANSendMessage(248, (BYTE*) &conversion_angle, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            //conversion_angle = 1023 -(responseAX.params[1]*256 + responseAX.params[0]);
+            *((int*)responseAX.params) = 1023 - *((int*)responseAX.params);
+            CANSendMessage(248, (BYTE*) responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_240 = 0;
         }
         if (responseReadyAX == 1 && ordre_241 == 1) {
@@ -184,7 +185,7 @@ void high_isr(void) {
                 while(!CANSendMessage(359 | new_state << 4 | state_changed << 3, (BYTE*)&(ranger.value), 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
                 }
-              //  led = led ^ 1;
+                led = led ^ 1;
             }
         }
         INTCON2bits.INTEDG0 ^= 1; // On écoutera l'autre sens.
@@ -213,7 +214,7 @@ void low_isr(void) {
             case 134: //Broadcast OFF
                 broadcast = 0;
                 break;
-            case 135: //Boradcast ON
+            case 135: //Broadcast ON
                 broadcast = 1;
                 break;
             case 136: //Mesures OFF
@@ -222,6 +223,7 @@ void low_isr(void) {
             case 137: //Mesures ON
                 mesures = 1;
                 break;
+
             case 193: //Demande de niveau de batterie
                 NiveauBatterie();
                 break;
@@ -269,9 +271,6 @@ void low_isr(void) {
                 }
                 break;
             case 335: // rangerThres
-                Nop();
-                Nop();
-                Nop();
                 ranger.threshold = ((unsigned int*) incoming.data)[0];
                 break;
             case 343: // rangerMute
@@ -279,6 +278,12 @@ void low_isr(void) {
                 break;
             case 351: // rangerUnmute
                 ranger.unmuted = 1;
+                break;
+
+            case 1946: // emergencyOn
+                mesures = 0; // Arrêt de la tourelle.
+                PutAX(AX_GAUCHE, AX_TORQUE_LIMIT, 0); // Free run.
+                PutAX(AX_DROIT,  AX_TORQUE_LIMIT, 0); // Free run.
                 break;
 
             default:
@@ -421,6 +426,14 @@ void main(void) {
 
     mesures = 0; //mesures off au démarrage
 
+    // Signal de démarrage du programme.
+    led = 0;
+    for (i = 0; i < 20; i++) {
+        led = led ^ 1;
+        DelayMS(50);
+    }
+
+
     PutAX(AX_BROADCAST, AX_ALARM_SHUTDOWN, 0);
     PutAX(AX_BROADCAST, AX_ALARM_LED, 0);
     PutAX(AX_BROADCAST, AX_MOVING_SPEED, 200);
@@ -430,12 +443,6 @@ void main(void) {
     //    PutAX(AX_DROIT, AX_CW_ANGLE_LIMIT, 200);                  //Limite haute pince droite
     //    PutAX(AX_DROIT, AX_CCW_ANGLE_LIMIT, 610);                   //Limite basse pince droite
 
-    // Signal de démarrage du programme.
-    led = 0;
-    for (i = 0; i < 20; i++) {
-        led = led ^ 1;
-        DelayMS(50);
-    }
 
     // Autorisation des interruptions
     RCONbits.IPEN = 1;
