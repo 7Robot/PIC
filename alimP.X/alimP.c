@@ -78,6 +78,7 @@ unsigned long temps[5] = {0};
 unsigned long distance[5] = {0};
 unsigned long position[5] = {0};
 volatile unsigned int timeData[20] = {0};
+int pas_de_balise = 0;
 
 int nbrepoint = 0;
 unsigned long pointMax[5] = {0};
@@ -452,6 +453,8 @@ void WriteAngle(int a) {
     angle = a;
     WriteTimer0(0); /*On initialise TMR0*/
     dataCount = 0; /*On initialise le tableau timeData[] sur la premiËre case*/
+    for (hh = 0; hh < 5; hh++)
+        temps[hh] = 0; // On initialise le tableau.
     T0CONbits.TMR0ON = 1; /*On dÈmarre le TMR0 pour le tableau timeData[]*/
 }
 
@@ -489,8 +492,12 @@ void GetData() {
             hh--;
         }
     }
+    if (!nbreBalises)
+        pas_de_balise++;
+    else
+        pas_de_balise = 0;
 
-    if (broadcast && !nbreBalises) { // On emet que si on a détecté quelque chose.
+    if (broadcast && pas_de_balise < 3) { // On emet que si on a détecté quelque chose ou qu'on a rien vu depuis deux fois.
         CANSendMessage(133, message.data, 2 * nbreBalises, /*ATTENTION Remttre 2*nbreBalises pour après 2*nbreBalises !!!*/
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
     }
