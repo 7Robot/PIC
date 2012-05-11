@@ -1,6 +1,6 @@
 /*
  * Programme d'asservissement vitesse et position du */
-#define GROS
+#define PETIT
  /*  robot
  * Eurobot 2012
  * Compiler : Microchip C18
@@ -89,7 +89,7 @@ void resetTicks(void);
     //#define TicksAcc 3*TourRoue // Pente des rampes.
     #define Kp 10
     #define Ki 10
-    #define Kd 8
+    #define Kd 5
     #define TRESDC 0
 #endif
 
@@ -323,6 +323,9 @@ void low_isr(void) {
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 if(mode == -1)
                     CANSendMessage(1042, (BYTE*)&r, 2,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+                if(mode == 2 || mode == 0)
+                    CANSendMessage(1040, (BYTE*)&r, 0,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 aru  = 0;
                 mode = 0;                
