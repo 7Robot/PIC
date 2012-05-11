@@ -18,7 +18,7 @@
 #include <timers.h>
 #include <p18f2680.h>
 #include "../libcan/can18xx8.h"
-#include "ax12.h"
+#include "ax12.c"
 #include <usart.h>
 #include <delays.h>
 #include <portb.h>
@@ -92,12 +92,13 @@ char broadcast = 0;
 char checkBatterie = 0;
 
 char k = 0;
-int consigne_angle_g = 220, consigne_angle_d = 220;
+int consigne_angle_g = 200, consigne_angle_d = 200;
 volatile int angle_g = 0;
 volatile int angle_d = 0;
+int conversion_angle;
 volatile char ordre_240 = 0;
 volatile char ordre_241 = 0;
-int consigne_couple_g = 400, consigne_couple_d = 300;
+int consigne_couple_g = 500, consigne_couple_d = 500;
 int couple_g = 0, couple_d = 0;
 volatile char ordre_224 = 0;
 volatile char ordre_225 = 0;
@@ -138,19 +139,21 @@ void high_isr(void) {
     if (PIE1bits.RCIE && PIR1bits.RCIF) {
         InterruptAX();
         if (responseReadyAX == 1 && ordre_240 == 1) {
-            CANSendMessage(248, (BYTE*) responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            conversion_angle = 1023 -(responseAX.params[1]*256 + responseAX.params[0]);
+            CANSendMessage(248, (BYTE*) &conversion_angle, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_240 = 0;
         }
         if (responseReadyAX == 1 && ordre_241 == 1) {
-            CANSendMessage(249, (BYTE*) & angle_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            CANSendMessage(249, (BYTE*) responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_241 = 0;
         }
         if (responseReadyAX == 1 && ordre_224 == 1) {
-            CANSendMessage(232, (BYTE*) & couple_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            responseAX.params[1] = responseAX.params[1] % 4;
+            CANSendMessage(232, (BYTE*) responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_224 = 0;
         }
         if (responseReadyAX == 1 && ordre_225 == 1) {
-            CANSendMessage(233, (BYTE*) & couple_g, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            CANSendMessage(233, (BYTE*) responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_225 = 0;
         }
     }
@@ -420,10 +423,12 @@ void main(void) {
 
     PutAX(AX_BROADCAST, AX_ALARM_SHUTDOWN, 0);
     PutAX(AX_BROADCAST, AX_ALARM_LED, 0);
-    //    PutAX(AX_GAUCHE, AX_CW_ANGLE_LIMIT, 0);         /* Permet de régler les angles limites des deux pinces */
-    //    PutAX(AX_GAUCHE, AX_CCW_ANGLE_LIMIT, 1023);
-    //    PutAX(AX_DROIT, AX_CW_ANGLE_LIMIT, 0);
-    //    PutAX(AX_DROIT, AX_CCW_ANGLE_LIMIT, 1023);
+    PutAX(AX_BROADCAST, AX_MOVING_SPEED, 200);
+    /* Permet de régler les angles limites des deux pinces */
+    //    PutAX(AX_GAUCHE, AX_CW_ANGLE_LIMIT, 1023 - 600);          //Limite basse pince gauche
+    //    PutAX(AX_GAUCHE, AX_CCW_ANGLE_LIMIT, 1023 - 200);         //Limite haute pince gauche
+    //    PutAX(AX_DROIT, AX_CW_ANGLE_LIMIT, 200);                  //Limite haute pince droite
+    //    PutAX(AX_DROIT, AX_CCW_ANGLE_LIMIT, 610);                   //Limite basse pince droite
 
     // Signal de démarrage du programme.
     led = 0;
