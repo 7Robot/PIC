@@ -1,4 +1,7 @@
 /*
+ * Programme d'asservissement vitesse et position du */
+#define GROS
+/*
 * Programme PIC carte d'alim petit robot
 * Eurobot 2012
 * Compiler : Microchip C18
@@ -44,16 +47,23 @@
 /////*CONSTANTES*/////
 #define FCY 16000000 // Fréquence d'exécution des instructions = 4*16Mhz/4 = 16MHz.
 #define led LATAbits.LATA5
-
-// Calibration optimiste.
-#define TICKS_PER_TURN (4 * 12 * 64) // Deux fronts * deux canaux * 12 pales * démultiplication.
-#define PI      3.14159265 // ? (sometimes written pi) is a mathematical constant that is the ratio of any Euclidean circle's circumference to its diameter.
+#define PI      3.14159265 // Pi (sometimes written pi) is a mathematical constant that is the ratio of any Euclidean circle's circumference to its diameter.
 #define CDEG    5729.57795 // (18000 / PI) // centi-degrees
-#define ENTRAXE (211. - 15.) // Rayon de courbure pour une seule roue en mouvement (mm).
-#define RAYON   36.5 // Rayon des roues (mm).
 
-#define MM      0.0746537317 // (2.* PI * RAYON / TICKS_PER_TURN) // Multiply ticks to get millimeters.
-#define DTHETA  0.000380886386 // (MM / ENTRAXE) // Delta de theta pour un tick (rad).
+
+#ifdef GROS  // Mesuré à l'arrache puis corrigé.
+    #define TICKS_PER_TURN (4 * 1024) // Deux fronts * deux canaux * 1024 ticks (?)
+
+    #define MM     0.0414174813
+    #define DTHETA 0.00017991636
+#else // Calibration optimiste.
+    #define TICKS_PER_TURN (4 * 12 * 64) // Deux fronts * deux canaux * 12 pales * démultiplication.
+    #define ENTRAXE (211. - 15.) // Rayon de courbure pour une seule roue en mouvement (mm).
+    #define RAYON   36.5 // Rayon des roues (mm).
+
+    #define MM      0.0746537317 // (2.* PI * RAYON / TICKS_PER_TURN) // Multiply ticks to get millimeters.
+    #define DTHETA  0.000380886386 // (MM / ENTRAXE) // Delta de theta pour un tick (rad).
+#endif
 
 #define RISE_gA INTCON2bits.INTEDG0
 #define RISE_dA INTCON2bits.INTEDG1
@@ -66,7 +76,7 @@
 /////*PROTOTYPES*/////
 void high_isr(void);
 void low_isr(void);
-void SendPosition();
+void SendPosition(void);
 void DelayMS(int delay);
 
 /////*VARIABLES GLOBALES*/////

@@ -245,8 +245,13 @@ void check_button(char num, char pin)
 {
     if(pin == switches[num]) // Évènement sur la pin.
     {
+        unsigned int id = 272 | (!pin << 3) | num;
         switches[num] = !pin; // Résistances pull-up => niveaux inversés.
-        while(!CANSendMessage(272 | (!pin << 3) | num, NULL, 0,
+        
+        if(num == 2)
+            id |= 1920; // diffusion
+
+        while(!CANSendMessage(id, NULL, 0,
             CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
         }
         led = led ^ 1;
