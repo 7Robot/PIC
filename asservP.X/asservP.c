@@ -347,7 +347,12 @@ void low_isr(void) {
         switch (message.id) {
             case 1032: // Consigne en vitesse
                 mode = 0;
-                Vconsigne(((char*)&message.data)[0], ((char*)&message.data)[1]);
+                Vconsigne(((char*)&message.data)[0], ((char*)&message.data)[1]);          
+#ifdef GROS
+                Vconsigne(2*((char*)&message.data)[0], 2*((char*)&message.data)[1]);       
+#else
+                Vconsigne(((char*)&message.data)[0], ((char*)&message.data)[1]);       
+#endif
                 break;
 
             case 1033: // Changement de vitesse par rampe
@@ -357,6 +362,12 @@ void low_isr(void) {
                 }
                 gVFinale = ((char*)&message.data)[0];
                 dVFinale = ((char*)&message.data)[1];
+
+#ifdef GROS
+                gVFinale = gVFinale * 2;
+                dVFinale = dVFinale * 2;
+#endif
+
                 if (gVFinale > Vmax)
                     gVFinale = Vmax;
                 else if (gVFinale < -Vmax)
@@ -379,13 +390,24 @@ void low_isr(void) {
                 Rconsigne = ((int*)&message.data)[0];
                 break;
 
+            case 1946:
             case 1028: // Arrêt
                 INTCONbits.TMR0IE = 0;
                 GsetDC(0);
                 DsetDC(0);
                 mode = 0;
                 break;
+/*
+            case 1938: //Emergency Off
+                resetTicks();
+                Vconsigne(0,0);
+                mode = 0;
+                GsetDC(0);
+                DsetDC(0);
+                INTCONbits.TMR0IE = 1;
+                break;*/
 
+            case 1938:
             case 1029: // Marche
                 resetTicks();
                 Vconsigne(0,0);

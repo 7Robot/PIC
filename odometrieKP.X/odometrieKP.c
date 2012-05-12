@@ -1,7 +1,7 @@
 /*
  * Programme d'asservissement vitesse et position du */
-#define GROS
-#define CA
+#define PETIT
+#define CAL
 /*
 * Programme PIC carte d'alim petit robot
 * Eurobot 2012
@@ -63,8 +63,8 @@
     #define ENTRAXE (211. - 15.) // Rayon de courbure pour une seule roue en mouvement (mm).
     #define RAYON   36.5 // Rayon des roues (mm).
 
-    #define MM      0.0746537317 // (2.* PI * RAYON / TICKS_PER_TURN) // Multiply ticks to get millimeters.
-    #define DTHETA  0.000380886386 // (MM / ENTRAXE) // Delta de theta pour un tick (rad).
+    #define MM      0.0371645188 // (2.* PI * RAYON / TICKS_PER_TURN) // Multiply ticks to get millimeters.
+    #define DTHETA  0.050506581 // RAD /TICKS
 #endif
 
 #define RISE_gA INTCON2bits.INTEDG0
@@ -194,8 +194,8 @@ void low_isr(void)
                 theta = 0;
             }
             else {
-                x = (float)(((int*)message.data)[0] * 2) / MM;
-                y = (float)(((int*)message.data)[1] * 2) / MM;
+                x = (float)(((int*)message.data)[0]) / MM;
+                y = (float)(((int*)message.data)[1]) / MM;
                 theta = (long)(((unsigned int*)message.data)[2] / CDEG / DTHETA);
             }
         }
@@ -204,7 +204,7 @@ void low_isr(void)
             theta = (CDEG*DTHETA)*theta;
             CANSendMessage(1045, (BYTE*)&theta, 4, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
             DelayMS(100);
-            distanceTotale = distanceTotale*MM;
+            //distanceTotale = distanceTotale*MM;
             CANSendMessage(1045, (BYTE*)&distanceTotale, 4, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
         }
 #endif
