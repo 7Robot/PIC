@@ -71,6 +71,10 @@ volatile ranger_finder rangers[6] = {0}; // Sonar ou Sharp.
 
 // Le sharp en cours de lecture (0 à 3).
 char cur_sharp = 2;  //cur_sharp va de 2 à 5.
+int sharp_value[9] = {0}; // Tableau utilisé pour sauvegarder les 3 dernières valeurs de chacun des 3 sharps.
+char count_sharp_value = 0; // Utilisé pour le tableau sharp_value[].
+char count_sharp_value_tab = 0;
+char count_sharp_value_change = 0;
 
 
 
@@ -184,8 +188,19 @@ void low_isr(void)
         // Début de l'attente des echos.
 
         // Lecture de l'ADC pour les sharps et passage à la mesure suivante.
-        rangers[cur_sharp].value = LectureAnalogique();
+        //count_sharp_value = (count_sharp_value + 1) %3;
+        //count_sharp_value_tab = count_sharp_value + 3*(cur_sharp - 2); // On se place au bon endroit dans le tableau sharp_value[].
+        count_sharp_value_tab = count_sharp_value + 3*(cur_sharp - 2);
+        count_sharp_value_change = (count_sharp_value_change + 1) %3;
 
+        if (count_sharp_value_change == 2)
+            count_sharp_value = (count_sharp_value + 1)%3;
+        count_sharp_value_change = (count_sharp_value_change + 1) %3;
+
+        sharp_value[count_sharp_value_tab] = LectureAnalogique();
+
+        rangers[cur_sharp].value = (sharp_value[3*(cur_sharp - 2)] + sharp_value[1 + 3*(cur_sharp - 2)] + sharp_value[2 + 3*(cur_sharp - 2)])/3;
+        //rangers[cur_sharp].value = LectureAnalogique();
         if(rangers[cur_sharp].unmuted) {
             while(!CANSendMessage(352 | cur_sharp, (BYTE*)&(rangers[cur_sharp].value), 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
@@ -193,11 +208,11 @@ void low_isr(void)
             led = led ^ 1;
         }
 
-        if(++cur_sharp > 5)
+        if(++cur_sharp > 4)
             cur_sharp = 2;
 
         // Lancement de la conversion suivante.
-        ADCON0 = 0b00000001 + ((cur_sharp - 2) << 2); // Selectionne le bon AN en lecture analogique
+         ADCON0 = 0b00000001 + ((cur_sharp - 2) << 2); // Selectionne le bon AN en lecture analogique
 
 
 
