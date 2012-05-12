@@ -182,7 +182,7 @@ void high_isr(void) {
             {
                 ranger.state = new_state;
 
-                while(!CANSendMessage(359 | new_state << 4 | state_changed << 3, (BYTE*)&(ranger.value), 2,
+                while(!CANSendMessage(231 | new_state << 4 | state_changed << 3, (BYTE*)&(ranger.value), 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
                 }
                 led = led ^ 1;
@@ -265,18 +265,18 @@ void low_isr(void) {
                 break;
 
             /* ULTRASON */
-            case 327: // rangerReq
-                while(!CANSendMessage(359 | (ranger.value < ranger.threshold) << 4, (BYTE*)&(ranger.value), 2,
+            case 199: // rangerReq
+                while(!CANSendMessage(231 | (ranger.value < ranger.threshold) << 4, (BYTE*)&(ranger.value), 2,
                     CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
                 }
                 break;
-            case 335: // rangerThres
+            case 207: // rangerThres
                 ranger.threshold = ((unsigned int*) incoming.data)[0];
                 break;
-            case 343: // rangerMute
+            case 215: // rangerMute
                 ranger.unmuted = 0;
                 break;
-            case 351: // rangerUnmute
+            case 223: // rangerUnmute
                 ranger.unmuted = 1;
                 break;
 
@@ -284,6 +284,11 @@ void low_isr(void) {
                 mesures = 0; // Arrêt de la tourelle.
                 PutAX(AX_GAUCHE, AX_TORQUE_LIMIT, 0); // Free run.
                 PutAX(AX_DROIT,  AX_TORQUE_LIMIT, 0); // Free run.
+                break;
+            case 1938: // emergencyOff
+                //mesures = 1;
+                PutAX(AX_GAUCHE, AX_TORQUE_LIMIT, consigne_couple_g); // Free run.
+                PutAX(AX_DROIT,  AX_TORQUE_LIMIT, consigne_couple_d); // Free run.
                 break;
 
             default:
