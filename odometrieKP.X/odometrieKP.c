@@ -1,6 +1,7 @@
 /*
  * Programme d'asservissement vitesse et position du */
 #define GROS
+#define CA
 /*
 * Programme PIC carte d'alim petit robot
 * Eurobot 2012
@@ -54,8 +55,9 @@
 #ifdef GROS  // Mesuré à l'arrache puis corrigé.
     #define TICKS_PER_TURN (4 * 1024) // Deux fronts * deux canaux * 1024 ticks (?)
 
-    #define MM     0.0414174813
-    #define DTHETA 0.00017991636
+    #define MM     0.0209330476 //mm/ticks
+    #define DTHETA 0.000179734454 // rad/ticks
+
 #else // Calibration optimiste.
     #define TICKS_PER_TURN (4 * 12 * 64) // Deux fronts * deux canaux * 12 pales * démultiplication.
     #define ENTRAXE (211. - 15.) // Rayon de courbure pour une seule roue en mouvement (mm).
@@ -93,6 +95,7 @@ char prevB = 0; // Valeur précédente du PORTB, pour déterminer le type de front
 volatile float x = 0; // En ticks.
 volatile float y = 0; // En ticks.
 volatile long theta = 0; // En ticks.
+volatile long distanceTotale = 0; //pour les tests
 
 // Nombre de ticks à traiter (signés).
 volatile char gTicks = 0;
@@ -196,6 +199,15 @@ void low_isr(void)
                 theta = (long)(((unsigned int*)message.data)[2] / CDEG / DTHETA);
             }
         }
+#ifdef CALIB
+        else if(message.id == 518) { // Renvoi données de calibrage.
+            theta = (CDEG*DTHETA)*theta;
+            CANSendMessage(1045, (BYTE*)&theta, 4, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+            DelayMS(100);
+            distanceTotale = distanceTotale*MM;
+            CANSendMessage(1045, (BYTE*)&distanceTotale, 4, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+        }
+#endif
         else {
             led = led ^ 1; // On annule la commutation précédente de la LED.
         }
@@ -289,7 +301,11 @@ void main (void) {
         theta -= dTicksTmp + gTicksTmp;
 
         distance = gTicksTmp - dTicksTmp; // En double ticks.
-        
+
+#ifdef CALIB
+        distanceTotale += distance;
+#endif
+
         x += distance * cosinus;
         y += distance * sinus;
 
@@ -332,8 +348,8 @@ void SendPosition() { // Utilisé en réponse à odoReq et dans l'autosend.
     long thetaCentiDegrees = theta * DTHETA * CDEG; // Risque d'under/overflow avec un unsigned int.
 
 
-    data[0] = (int)(x * MM / 2.);
-    data[1] = (int)(y * MM / 2.);
+    data[0] = (int)(x * MM);
+    data[1] = (int)(y * MM);
     ((unsigned int*)data)[2] = (unsigned int)(((thetaCentiDegrees % 36000) + 36000) % 36000); // Contournement du modulo négatif.
 
 
