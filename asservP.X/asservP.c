@@ -1,6 +1,6 @@
 /*
  * Programme d'asservissement vitesse et position du */
-#define PETIT
+#define GROS
  /*  robot
  * Eurobot 2012
  * Compiler : Microchip C18
@@ -219,6 +219,21 @@ void low_isr(void) {
 
         dIErreur += dErreur;
         gIErreur += gErreur;
+
+#ifdef GROS
+
+        if( (fabs(gIErreur) > 5000) || (fabs(dIErreur) > 5000) ) //reset si overflow
+        {
+            GsetDC(0);
+            DsetDC(0);
+            CANSendMessage(1056, (BYTE*)&ticksElie, 0,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
+            DelayMS(100);
+            _asm
+                reset
+            _endasm
+        }
+#endif
 
         dDErreur = dErreur - dErreurP;
         gDErreur = gErreur - gErreurP;

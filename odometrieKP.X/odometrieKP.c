@@ -1,7 +1,7 @@
 /*
  * Programme d'asservissement vitesse et position du */
-#define PETIT
-#define CAL
+#define GR
+#define CALIB
 /*
 * Programme PIC carte d'alim petit robot
 * Eurobot 2012
@@ -64,7 +64,7 @@
     #define RAYON   36.5 // Rayon des roues (mm).
 
     #define MM      0.0371645188 // (2.* PI * RAYON / TICKS_PER_TURN) // Multiply ticks to get millimeters.
-    #define DTHETA  0.050506581 // RAD /TICKS
+    #define DTHETA  0.00100840748 // RAD / TICKS
 #endif
 
 #define RISE_gA INTCON2bits.INTEDG0
@@ -201,7 +201,7 @@ void low_isr(void)
         }
 #ifdef CALIB
         else if(message.id == 518) { // Renvoi données de calibrage.
-            theta = (CDEG*DTHETA)*theta;
+            //theta = (CDEG*DTHETA)*theta;
             CANSendMessage(1045, (BYTE*)&theta, 4, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
             DelayMS(100);
             //distanceTotale = distanceTotale*MM;
