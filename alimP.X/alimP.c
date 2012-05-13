@@ -498,8 +498,12 @@ void GetData() {
             //distance[hh] = 6.7/(2*omega*temps[hh]*0.000001/2); //distance en cm
             position[hh] = 0.001431936 * (pointMax[hh] + pointMin[hh]);
             //position[hh] =  (omega * (pointMax[hh] + pointMin[hh])/2 * 6.4 * 0.000001)*180/3.14159;
-            if (angle == 0)
-                position[hh] = 180 - position[hh];
+            if (angle == 0){
+                if (distance[hh] < 25)
+                    position[hh] = 180 - position[hh];
+                else
+                    position[hh] = 190 - position[hh];
+            }
             message.data[2 * hh] = (char) distance[hh];
             message.data[2 * hh + 1] = (char) position[hh];
         } else {
@@ -514,7 +518,7 @@ void GetData() {
     else
         pas_de_balise = 0;
 
-    if (broadcast && pas_de_balise < 3) { // On emet que si on a détecté quelque chose ou qu'on a rien vu depuis deux fois.
+    if (pas_de_balise < 3) { // On emet que si on a détecté quelque chose ou qu'on a rien vu depuis deux fois.
         CANSendMessage(133, message.data, 2 * nbreBalises, /*ATTENTION Remttre 2*nbreBalises pour après 2*nbreBalises !!!*/
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
     }
