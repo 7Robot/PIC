@@ -258,7 +258,8 @@ void main(void) {
     ResetBuffer(OUTbuffer);
     ResetBuffer(INbuffer);
 
-    printf("Reset ARM!\n");
+    //printf("Reset ARM!\n");
+    
     on = 1;
 
     INTCONbits.GIE = 1; /* Autorise interruptions. */

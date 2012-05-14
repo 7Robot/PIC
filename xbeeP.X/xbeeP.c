@@ -259,8 +259,8 @@ void main (void)
     ResetBuffer(OUTbuffer);
     ResetBuffer(INbuffer);
 
-    printf("Reset Espion !\n");
-
+    //printf("Reset Espion !\n");
+    CANSendMessage(126, (BYTE*)&i, 0, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
 
     INTCONbits.GIE = 1; /* Autorise interruptions. */
     INTCONbits.PEIE = 1;
