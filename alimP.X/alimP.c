@@ -88,7 +88,7 @@ int nbreBalises = 0;
 unsigned int batteryLevel = 0;
 
 volatile char mesures = 0;
-char broadcast = 0;
+char broadcast = 0; // inutilisé
 char checkBatterie = 0;
 
 char k = 0;
@@ -102,6 +102,8 @@ int consigne_couple_g = 500, consigne_couple_d = 500;
 int couple_g = 0, couple_d = 0;
 volatile char ordre_224 = 0;
 volatile char ordre_225 = 0;
+
+char pulse_sonar = 0;
 
 ///// cf capteurP.c ///////
 typedef struct {
@@ -182,32 +184,35 @@ void high_isr(void) {
             {
                 ranger.state = new_state;
 
-                while(!CANSendMessage(231 | new_state << 4 | state_changed << 3, (BYTE*)&(ranger.value), 2,
-                    CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
-                }
+                CANSendMessage(231 | new_state << 4 | state_changed << 3, (BYTE*)&(ranger.value), 2,
+                    CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
                 led = led ^ 1;
             }
         }
         INTCON2bits.INTEDG0 ^= 1; // On écoutera l'autre sens.
     }
 }
-#pragma interrupt low_isr
 
+#pragma interrupt low_isr
 void low_isr(void) {
     if (INTCON3bits.INT1E && INTCON3bits.INT1F) {
         InterruptLaser();
     }
-    // Réception CAN.
-    if (PIE3bits.RXB0IE && (PIR3bits.RXB0IF || PIR3bits.RXB1IF)) {
 
-        while (CANIsRxReady()) {
-            CANReceiveMessage(&incoming.id, incoming.data, &incoming.len, &incoming.flags);
-        }
+    // Réception CAN.
+    if (PIR3bits.RXB0IF || PIR3bits.RXB1IF) {
+
+        CANReceiveMessage(&incoming.id, incoming.data, &incoming.len, &incoming.flags);
+
+        if(PIR3bits.RXB0IF)
+            PIR3bits.RXB0IF = 0;
+        else // Ne désactive pas les deux à la fois si ils sont tous les deux pleins.
+            PIR3bits.RXB1IF = 0;
 
 
         switch (incoming.id) {
             /* TOURELLE */
-            case 132: //Renvoyer distace/angle objet
+            case 132: //Renvoyer distance/angle objet
                 CANSendMessage(133, message.data, 2 * nbreBalises,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 break;
@@ -297,11 +302,6 @@ void low_isr(void) {
                 break;
         }
         led = led ^1;
-
-        if(PIR3bits.RXB0IF)
-            PIR3bits.RXB0IF = 0;
-        else // Ne désactive pas les deux à la fois si ils sont tous les deux pleins.
-            PIR3bits.RXB1IF = 0;
     }
 
     // Génération des pulses sonars.
@@ -311,7 +311,7 @@ void low_isr(void) {
 
         // Cf code capeurs.
 
-        if(PORTAbits.RA0) {
+        if(pulse_sonar) {
             // Tourelle : CloseRB1INT();
             OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
 
@@ -325,6 +325,7 @@ void low_isr(void) {
             PORTAbits.RA0 = 1;
             // Tourelle : PORTAbits.RA1 = 0;
         }
+        pulse_sonar ^= 1;
     }
 
     //Gestion des AX12
@@ -454,13 +455,12 @@ void main(void) {
     INTCONbits.GIEH = 1;
     INTCONbits.GIEL = 1;
 
-
+    WriteAngle(180); // Coté qui force pas.
     while (1) {
         if (mesures) {
             if (mesures)
                 Mesures();
         } else {
-            PIE2bits.TMR3IE = 0;
             INTCON3bits.INT1E = 0;
         }
     }
@@ -539,9 +539,7 @@ void CalculBalise() {
 }
 
 void Mesures() {
-    PIE2bits.TMR3IE = 1;
     INTCON3bits.INT1E = 1;
-    TRISCbits.RC4 = 0;
     WriteAngle(0);
     DelayMS(500);
     GetData();
