@@ -504,6 +504,7 @@ void GetData() {
                 else
                     position[hh] = 190 - position[hh];
             }
+            position[hh] -= 5; // Le 5 c'est empirique...
             message.data[2 * hh] = (char) distance[hh];
             message.data[2 * hh + 1] = (char) position[hh];
         } else {
