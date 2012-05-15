@@ -1,7 +1,7 @@
 /*
  * Programme d'asservissement vitesse et position du */
-#define GR
-#define CALIB
+#define GROS
+#define CAL
 /*
 * Programme PIC carte d'alim petit robot
 * Eurobot 2012
@@ -251,7 +251,11 @@ void main (void) {
     IOCB = 0b00110000;
 
     // Timer0 pour le broadcast de l'odométrie.
+#ifdef GROS
+    OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_16); // 64 * 2^16 / 16e6 = 0.262 fois par seconde
+#else
     OpenTimer0(TIMER_INT_ON & T0_16BIT & T0_SOURCE_INT & T0_PS_1_64); // 64 * 2^16 / 16e6 = 0.262 fois par seconde
+#endif
     INTCON2bits.TMR0IP = 0; // Priorité basse, car ce n'est pas critique.
 
 
