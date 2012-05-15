@@ -56,28 +56,28 @@ void NiveauBatterie(void);
 #define led     PORTCbits.RC0
 
 #define batterie 4
-#define servo   PORTCbits.RC4
+#define servoPin   PORTCbits.RC4
 #define laser   PORTBbits.RB1
 #define temoin  PORTCbits.RC6
 #define tempsMin 0.33               //Avec ces valeurs on a 180
 #define tempsMax 2.08  //2.44 max
 #define omega 7.81 // Vitesse angulaire de rotation du servomoteur
-
+#define TIMEDATA_SIZE 50 /*grosse marge sur le nombre de glitch*/
 
 /////*VARIABLES GLOBALES*/////
-CANmsg message;
+CANmsg messageTourelle;
 CANmsg incoming;
 int i = 0;
 
-volatile int dataCount = 0;
-int hh = 0;
+volatile int timeCount = 0;
+volatile unsigned int timeData[TIMEDATA_SIZE];
+
+int cur_balise = 0;
 volatile unsigned int angle = 0;
-int pulse = 0;
-int dir = 1;
+int servoLatch;
 unsigned long temps[5] = {0};
 unsigned long distance[5] = {0};
 unsigned long position[5] = {0};
-volatile unsigned int timeData[20] = {0};
 int pas_de_balise = 0;
 
 int nbrepoint = 0;
@@ -106,6 +106,7 @@ volatile char ordre_225 = 0;
 char pulse_sonar = 0;
 
 ///// cf capteurP.c ///////
+
 typedef struct {
     char unmuted; // Broadcast désactivé pour 0.
     char state; // 1 pour au dessous du seuil.
@@ -142,7 +143,7 @@ void high_isr(void) {
         InterruptAX();
         if (responseReadyAX == 1 && ordre_240 == 1) {
             //conversion_angle = 1023 -(responseAX.params[1]*256 + responseAX.params[0]);
-            *((int*)responseAX.params) = 1023 - *((int*)responseAX.params);
+            *((int*) responseAX.params) = 1023 - *((int*) responseAX.params);
             CANSendMessage(248, (BYTE*) responseAX.params, 2, CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
             ordre_240 = 0;
         }
@@ -161,13 +162,13 @@ void high_isr(void) {
         }
     }
 
-    if(INTCONbits.INT0IE && INTCONbits.INT0IF) // Cf capteurP.c
+    if (INTCONbits.INT0IE && INTCONbits.INT0IF) // Cf capteurP.c
     {
         unsigned int time = ReadTimer1();
         INTCONbits.INT0IF = 0;
 
-        if(INTCON2bits.INTEDG0) { // Début du pulse, on enregistre le temps.
-             ranger.pulse_start = time;
+        if (INTCON2bits.INTEDG0) { // Début du pulse, on enregistre le temps.
+            ranger.pulse_start = time;
         }
         else { // Fin du pulse.
             char new_state;
@@ -180,12 +181,11 @@ void high_isr(void) {
             new_state = (ranger.value < ranger.threshold);
             state_changed = (ranger.state != new_state);
 
-            if(ranger.unmuted || state_changed)
-            {
+            if (ranger.unmuted || state_changed) {
                 ranger.state = new_state;
 
                 CANSendMessage(231 | new_state << 4 | state_changed << 3, (BYTE*)&(ranger.value), 2,
-                    CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME );
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 led = led ^ 1;
             }
         }
@@ -194,6 +194,7 @@ void high_isr(void) {
 }
 
 #pragma interrupt low_isr
+
 void low_isr(void) {
     if (INTCON3bits.INT1E && INTCON3bits.INT1F) {
         InterruptLaser();
@@ -204,16 +205,16 @@ void low_isr(void) {
 
         CANReceiveMessage(&incoming.id, incoming.data, &incoming.len, &incoming.flags);
 
-        if(PIR3bits.RXB0IF)
+        if (PIR3bits.RXB0IF)
             PIR3bits.RXB0IF = 0;
         else // Ne désactive pas les deux à la fois si ils sont tous les deux pleins.
             PIR3bits.RXB1IF = 0;
 
 
         switch (incoming.id) {
-            /* TOURELLE */
+                /* TOURELLE */
             case 132: //Renvoyer distance/angle objet
-                CANSendMessage(133, message.data, 2 * nbreBalises,
+                CANSendMessage(133, messageTourelle.data, 2 * nbreBalises,
                         CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
                 break;
             case 134: //Broadcast OFF
@@ -233,7 +234,7 @@ void low_isr(void) {
                 NiveauBatterie();
                 break;
 
-            /* AX GAUCHE */
+                /* AX GAUCHE */
             case 252: //Reception angle AX12 gauche
                 consigne_angle_g = ((int*) &incoming.data)[0];
                 break;
@@ -251,7 +252,7 @@ void low_isr(void) {
                 GetAX(AX_GAUCHE, AX_PRESENT_LOAD);
                 break;
 
-            /* AX DROIT */
+                /* AX DROIT */
             case 253: //Reception angle AX12 droit
                 consigne_angle_d = ((int*) &incoming.data)[0];
                 break;
@@ -269,10 +270,10 @@ void low_isr(void) {
                 GetAX(AX_DROIT, AX_PRESENT_LOAD);
                 break;
 
-            /* ULTRASON */
+                /* ULTRASON */
             case 199: // rangerReq
-                while(!CANSendMessage(231 | (ranger.value < ranger.threshold) << 4, (BYTE*)&(ranger.value), 2,
-                    CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME )) {
+                while (!CANSendMessage(231 | (ranger.value < ranger.threshold) << 4, (BYTE*)&(ranger.value), 2,
+                        CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME)) {
                 }
                 break;
             case 207: // rangerThres
@@ -288,12 +289,12 @@ void low_isr(void) {
             case 1946: // emergencyOn
                 mesures = 0; // Arrêt de la tourelle.
                 PutAX(AX_GAUCHE, AX_TORQUE_LIMIT, 0); // Free run.
-                PutAX(AX_DROIT,  AX_TORQUE_LIMIT, 0); // Free run.
+                PutAX(AX_DROIT, AX_TORQUE_LIMIT, 0); // Free run.
                 break;
             case 1938: // emergencyOff
                 //mesures = 1;
                 PutAX(AX_GAUCHE, AX_TORQUE_LIMIT, consigne_couple_g); // Free run.
-                PutAX(AX_DROIT,  AX_TORQUE_LIMIT, consigne_couple_d); // Free run.
+                PutAX(AX_DROIT, AX_TORQUE_LIMIT, consigne_couple_d); // Free run.
                 break;
 
             default:
@@ -305,20 +306,19 @@ void low_isr(void) {
     }
 
     // Génération des pulses sonars.
-    if(PIE1bits.TMR1IE && PIR1bits.TMR1IF) // Vingt fois par secondes, non stop.
+    if (PIE1bits.TMR1IE && PIR1bits.TMR1IF) // Vingt fois par secondes, non stop.
     {
         PIR1bits.TMR1IF = 0;
 
         // Cf code capeurs.
 
-        if(pulse_sonar) {
+        if (pulse_sonar) {
             // Tourelle : CloseRB1INT();
             OpenRB0INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
 
             PORTAbits.RA0 = 0; // Fin du pulse => déclenchement.
             // Tourelle : PORTAbits.RA1 = 1;
-        }
-        else {
+        } else {
             CloseRB0INT();
             // Tourelle : OpenRB1INT(PORTB_CHANGE_INT_ON & RISING_EDGE_INT & PORTB_PULLUPS_OFF);
 
@@ -369,7 +369,8 @@ void main(void) {
     TRISB = 0b11111111;
     TRISC = 0b10101010;
 
-    servo = 0;
+    servoPin = 0;
+    servoLatch = 0;
 
     /*Configuration module USART*/
     OpenUSART(USART_TX_INT_OFF & USART_RX_INT_ON
@@ -382,7 +383,7 @@ void main(void) {
     WriteTimer0(0);
 
     OpenTimer1(TIMER_INT_ON & T1_16BIT_RW & T1_SOURCE_INT & T1_PS_1_2
-            & T1_OSC1EN_OFF & T1_SYNC_EXT_OFF ); // Sonar.
+            & T1_OSC1EN_OFF & T1_SYNC_EXT_OFF); // Sonar.
     IPR1bits.TMR1IP = 0;
 
     OpenTimer2(TIMER_INT_ON & T2_PS_1_16 & T2_POST_1_16); // AX-12.
@@ -457,61 +458,79 @@ void main(void) {
 
     WriteAngle(180); // Coté qui force pas.
     while (1) {
-        if (mesures) {
+        if (mesures)
             if (mesures)
                 Mesures();
-        } else {
-            INTCON3bits.INT1E = 0;
-        }
+    }
+}
+
+void Mesures() {
+    INTCON3bits.INT1E = 1; // InterruptLaser
+    WriteAngle(0);
+    DelayMS(500);
+    INTCON3bits.INT1E = 0;
+    GetData();
+    INTCON3bits.INT1E = 1;
+    WriteAngle(180);
+    DelayMS(500);
+    INTCON3bits.INT1E = 0;
+    GetData();
+}
+
+void InterruptLaser() {
+    timeData[timeCount++] = ReadTimer0();
+    INTCON2bits.INTEDG1 ^= 1;
+    INTCON3bits.INT1F = 0;
+    if (timeCount >= TIMEDATA_SIZE) {
+        timeCount--;
+        INTCON3bits.INT1E = 0; // On accepte plus de mesures.
     }
 }
 
 void WriteAngle(int a) {
     angle = a;
     WriteTimer0(0); /*On initialise TMR0*/
-    dataCount = 0; /*On initialise le tableau timeData[] sur la premiËre case*/
-    for (hh = 0; hh < 5; hh++)
-        temps[hh] = 0; // On initialise le tableau.
-    T0CONbits.TMR0ON = 1; /*On dÈmarre le TMR0 pour le tableau timeData[]*/
+    timeCount = 0; /*On initialise le tableau timeData[] sur la premiËre case*/
+    T0CONbits.TMR0ON = 1; /*On démarre le TMR0 pour le tableau timeData[]*/
 }
 
 void GetData() {
     T0CONbits.TMR0ON = 0;
 
-    nbrepoint = dataCount;
+    nbrepoint = timeCount;
     if (nbrepoint % 2) // Permet de ne pas avoir de problème si l'on s'arrête sur une tourelle
         nbrepoint--;
     pointMin[0] = timeData[0];
     pointMax[0] = timeData[1];
 
     nbreBalises = 0;
-    dataCount = 0;
-    hh = 0;
+    timeCount = 0;
+    cur_balise = 0;
 
-    while (2 * dataCount < nbrepoint) {
+    while (2 * timeCount < nbrepoint) {
         CalculBalise();
     }
 
-    for (hh = 0; hh < nbreBalises; hh++) {
-        if ((distance[hh] = 857874.5198 / temps[hh]) < 180) //distance en cm
+    for (cur_balise = 0; cur_balise < nbreBalises; cur_balise++) {
+        if ((distance[cur_balise] = 857874.5198 / temps[cur_balise]) < 180) //distance en cm
         {
             //distance[hh] = 6.7/(2*omega*temps[hh]*0.000001/2); //distance en cm
-            position[hh] = 0.001431936 * (pointMax[hh] + pointMin[hh]);
+            position[cur_balise] = 0.001431936 * (pointMax[cur_balise] + pointMin[cur_balise]);
             //position[hh] =  (omega * (pointMax[hh] + pointMin[hh])/2 * 6.4 * 0.000001)*180/3.14159;
-            if (angle == 0){
-                if (distance[hh] < 25)
-                    position[hh] = 180 - position[hh];
+            if (angle == 0) {
+                if (distance[cur_balise] < 25)
+                    position[cur_balise] = 180 - position[cur_balise];
                 else
-                    position[hh] = 190 - position[hh];
+                    position[cur_balise] = 190 - position[cur_balise];
             }
-            position[hh] -= 5; // Le 5 c'est empirique...
-            message.data[2 * hh] = (char) distance[hh];
-            message.data[2 * hh + 1] = (char) position[hh];
+            position[cur_balise] -= 5; // Le 5 c'est empirique...
+            messageTourelle.data[2 * cur_balise] = (char) distance[cur_balise];
+            messageTourelle.data[2 * cur_balise + 1] = (char) position[cur_balise];
         } else {
-            for (dataCount = hh; dataCount < (nbreBalises - 1); dataCount++) // Permet d'enlever les balises aberrantes
-                temps[dataCount] = temps[dataCount + 1];
+            for (timeCount = cur_balise; timeCount < (nbreBalises - 1); timeCount++) // Permet d'enlever les balises aberrantes
+                temps[timeCount] = temps[timeCount + 1];
             nbreBalises--;
-            hh--;
+            cur_balise--;
         }
     }
     if (!nbreBalises)
@@ -520,52 +539,36 @@ void GetData() {
         pas_de_balise = 0;
 
     if (pas_de_balise < 3) { // On emet que si on a détecté quelque chose ou qu'on a rien vu depuis deux fois.
-        CANSendMessage(133, message.data, 2 * nbreBalises, /*ATTENTION Remttre 2*nbreBalises pour après 2*nbreBalises !!!*/
+        CANSendMessage(133, messageTourelle.data, 2 * nbreBalises, /*ATTENTION Remttre 2*nbreBalises pour après 2*nbreBalises !!!*/
                 CAN_TX_PRIORITY_0 & CAN_TX_STD_FRAME & CAN_TX_NO_RTR_FRAME);
     }
 }
 
 void CalculBalise() {
     nbreBalises++;
-    pointMin[hh] = timeData[2 * dataCount];
-    pointMax[hh] = timeData[2 * dataCount + 1];
-    dataCount++;
-    while ((timeData[2 * dataCount] - timeData[2 * dataCount - 1])*6.4 < 800 && (2 * dataCount) < nbrepoint) {
-        pointMax[hh] = timeData[2 * dataCount + 1];
-        dataCount++;
+    pointMin[cur_balise] = timeData[2 * timeCount];
+    pointMax[cur_balise] = timeData[2 * timeCount + 1];
+    timeCount++;
+    while ((timeData[2 * timeCount] - timeData[2 * timeCount - 1])*6.4 < 800 && (2 * timeCount) < nbrepoint) {
+        pointMax[cur_balise] = timeData[2 * timeCount + 1];
+        timeCount++;
     }
-    temps[hh] = (pointMax[hh] - pointMin[hh])*6.4;
-    hh++;
-}
-
-void Mesures() {
-    INTCON3bits.INT1E = 1;
-    WriteAngle(0);
-    DelayMS(500);
-    GetData();
-    WriteAngle(180);
-    DelayMS(500);
-    GetData();
+    temps[cur_balise] = (pointMax[cur_balise] - pointMin[cur_balise])*6.4;
+    cur_balise++;
 }
 
 void InterruptServo() {
-    if (pulse == 1) {
-        WriteTimer3(65535 - tempsMin * 2500 - angle * (tempsMax - tempsMin)*13.888889);
+    if (servoLatch == 0) {
+        WriteTimer3(65535 - tempsMin * 2500 - angle * (tempsMax - tempsMin) * 13.888889);
         //WriteTimer3(65535 - tempsMin*65535/26.214  - angle * (65535/26.214) * (tempsMax - tempsMin) / 180);
-        servo = 1;
-        pulse = 0;
+        servoPin = 1;
+        servoLatch = 1;
     } else {
         WriteTimer3(15535); // 20ms
-        servo = 0;
-        pulse = 1;
+        servoPin = 0;
+        servoLatch = 0;
     }
     PIR2bits.TMR3IF = 0;
-}
-
-void InterruptLaser() {
-    timeData[dataCount++] = ReadTimer0();
-    INTCON2bits.INTEDG1 ^= 1;
-    INTCON3bits.INT1F = 0;
 }
 
 unsigned int LectureAnalogique(char pin) { // pas utilisé
@@ -620,5 +623,4 @@ void NiveauBatterie() {
 
 
     checkBatterie = 0;
-
 }
